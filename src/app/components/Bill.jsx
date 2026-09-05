@@ -1,40 +1,147 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 export default function BillingPage() {
   const [billData, setBillData] = useState({
-    companyName: 'Chingari Media',
-    companyAddress: 'First Floor, Shakuntala Sagar, Ct Station Rd, PWD Colony, Purnia, Bihar 854301',
-    companyPhone: '+91 91234 56789',
+    shopName: 'Krishna Store',
+    shopSubtitle: 'Fresh & Daily Needs',
+    shopAddress: '123, Main Market, Near Temple, Vrindavan, UP 281121',
+    shopPhone: '+91 98765 43210',
+    shopEmail: 'krishnastore@gmail.com',
+    shopGST: '09ABCDE1234F1Z5',
     customerName: '',
+    customerPhone: '',
     customerAddress: '',
     invoiceNo: '',
     invoiceDate: '',
-    items: [{ serviceName: '', description: '', quantity: 1, rate: 0, amount: 0 }],
+    items: [{ productName: '', quantity: 1, rate: 0, amount: 0 }],
     subtotal: 0,
     gstRate: 18,
     gstAmount: 0,
     discount: 0,
-    discountType: 'amount', // 'amount' or 'percentage'
+    discountType: 'amount',
     total: 0,
-    notes: 'Payment is due within 15 days. Thank you for choosing Chingari Media!',
+    paymentMethod: 'Cash',
+    paymentStatus: 'Paid',
+    notes: 'Thank you for shopping at Krishna Store! 🙏',
+    deliveryCharge: 0,
+    platformFee: 0,
+    handlingCharge: 0,
+    convenienceFee: 0,
   });
 
-  // Set initial invoice number and date - this is fine as it runs once
+  const [searchTerm, setSearchTerm] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [savedBills, setSavedBills] = useState([]);
+  const printRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const productDatabase = [
+    { name: 'Wheat Flour (Atta) - 5kg', rate: 180 },
+    { name: 'Basmati Rice - 5kg', rate: 350 },
+    { name: 'Normal Rice - 5kg', rate: 250 },
+    { name: 'Sugar - 1kg', rate: 45 },
+    { name: 'Salt - 1kg', rate: 20 },
+    { name: 'Cooking Oil - 1L', rate: 160 },
+    { name: 'Ghee - 500ml', rate: 220 },
+    { name: 'Milk - 1L', rate: 60 },
+    { name: 'Curd - 500ml', rate: 40 },
+    { name: 'Paneer - 250g', rate: 80 },
+    { name: 'Butter - 500g', rate: 180 },
+    { name: 'Eggs - 12 pcs', rate: 90 },
+    { name: 'Potato - 1kg', rate: 30 },
+    { name: 'Onion - 1kg', rate: 25 },
+    { name: 'Tomato - 1kg', rate: 40 },
+    { name: 'Green Chilli - 250g', rate: 15 },
+    { name: 'Coriander - 100g', rate: 10 },
+    { name: 'Apple - 1kg', rate: 120 },
+    { name: 'Banana - 12 pcs', rate: 60 },
+    { name: 'Orange - 1kg', rate: 80 },
+    { name: 'Grapes - 500g', rate: 60 },
+    { name: 'Lemon - 10 pcs', rate: 30 },
+    { name: 'Biscuits - 200g', rate: 30 },
+    { name: 'Chips - 100g', rate: 20 },
+    { name: 'Cold Drink - 500ml', rate: 40 },
+    { name: 'Juice - 1L', rate: 80 },
+    { name: 'Soap - 100g', rate: 35 },
+    { name: 'Shampoo - 200ml', rate: 120 },
+    { name: 'Toothpaste - 100g', rate: 60 },
+    { name: 'Sanitizer - 500ml', rate: 100 },
+    { name: 'Detergent - 1kg', rate: 80 },
+    { name: 'Floor Cleaner - 1L', rate: 70 },
+    { name: 'Dish Wash - 500ml', rate: 50 },
+    // Food Items - Jooniya Style
+    { name: 'Chicken Biryani', rate: 130 },
+    { name: 'Chicken Korma', rate: 60 },
+    { name: 'Chicken Pakoda', rate: 100 },
+    { name: 'Chicken Curry', rate: 120 },
+    { name: 'Chicken Tikka', rate: 150 },
+    { name: 'Mutton Biryani', rate: 200 },
+    { name: 'Mutton Korma', rate: 180 },
+    { name: 'Veg Biryani', rate: 100 },
+    { name: 'Veg Thali', rate: 80 },
+    { name: 'Butter Naan', rate: 30 },
+    { name: 'Garlic Naan', rate: 35 },
+    { name: 'Lassi', rate: 40 },
+    { name: 'Soft Drink', rate: 30 },
+  ];
+
   useEffect(() => {
-    setBillData(prev => ({
-      ...prev,
-      invoiceNo: 'INV-' + Math.floor(1000 + Math.random() * 9000),
-      invoiceDate: new Date().toLocaleDateString('en-GB'),
-    }));
+    generateNewInvoice();
+    const saved = localStorage.getItem('krishnaStoreBills');
+    if (saved) setSavedBills(JSON.parse(saved));
   }, []);
 
-  // Separate calculation function that doesn't cause cascading updates
+  const generateNewInvoice = () => {
+    const date = new Date();
+    const timestamp = Date.now();
+    const random = Math.floor(1000 + Math.random() * 9000);
+    
+    setBillData(prev => ({
+      ...prev,
+      invoiceNo: 'KS-' + timestamp + '-' + random,
+      invoiceDate: date.toLocaleDateString('en-IN', { 
+        day: '2-digit', 
+        month: 'short', 
+        year: 'numeric' 
+      }) + ', ' + date.toLocaleTimeString('en-IN', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }),
+    }));
+  };
+
+  const handleProductSearch = (searchValue) => {
+    setSearchTerm(searchValue);
+    if (searchValue.length > 1) {
+      const filtered = productDatabase.filter(product =>
+        product.name.toLowerCase().includes(searchValue.toLowerCase())
+      );
+      setSuggestions(filtered.slice(0, 8));
+    } else {
+      setSuggestions([]);
+    }
+  };
+
+  const selectProduct = (product) => {
+    const newItems = [...billData.items];
+    const lastIndex = newItems.length - 1;
+    newItems[lastIndex].productName = product.name;
+    newItems[lastIndex].rate = product.rate;
+    const updatedData = { ...billData, items: newItems };
+    const calculatedData = calculateTotals(updatedData);
+    setBillData(calculatedData);
+    setSuggestions([]);
+    setSearchTerm('');
+    if (inputRef.current) inputRef.current.focus();
+  };
+
   const calculateTotals = (currentData) => {
-    // Calculate item amounts
     const updatedItems = currentData.items.map(item => ({
       ...item,
       amount: (parseFloat(item.quantity) || 1) * (parseFloat(item.rate) || 0)
@@ -43,7 +150,6 @@ export default function BillingPage() {
     const subtotal = updatedItems.reduce((sum, item) => sum + item.amount, 0);
     const gstAmount = (subtotal * (parseFloat(currentData.gstRate) || 0)) / 100;
     
-    // Calculate discount
     let discountAmount = 0;
     if (currentData.discountType === 'percentage') {
       discountAmount = (subtotal * (parseFloat(currentData.discount) || 0)) / 100;
@@ -51,14 +157,18 @@ export default function BillingPage() {
       discountAmount = parseFloat(currentData.discount) || 0;
     }
     
-    const total = subtotal + gstAmount - discountAmount;
+    const total = subtotal + gstAmount - discountAmount + 
+      parseFloat(currentData.deliveryCharge || 0) +
+      parseFloat(currentData.platformFee || 0) +
+      parseFloat(currentData.handlingCharge || 0) +
+      parseFloat(currentData.convenienceFee || 0);
     
     return {
       ...currentData,
       items: updatedItems,
       subtotal,
       gstAmount,
-      discountAmount, // Store the actual discount amount for display
+      discountAmount,
       total: total > 0 ? total : 0
     };
   };
@@ -74,347 +184,828 @@ export default function BillingPage() {
   const handleDiscountChange = (value, type) => {
     const updatedData = { 
       ...billData, 
-      discount: value,
+      discount: parseFloat(value) || 0,
       discountType: type || billData.discountType
     };
     const calculatedData = calculateTotals(updatedData);
     setBillData(calculatedData);
   };
 
-  const downloadPDF = () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    
-    doc.setFillColor(248, 250, 252);
-    doc.rect(0, 0, pageWidth, 297, 'F');
-    
-    doc.setFillColor(15, 23, 42); 
-    doc.rect(0, 0, pageWidth, 55, 'F');
-
-    try {
-      doc.addImage('/abc.webp', 'WEBP', (pageWidth / 2) - 12, 8, 24, 24);
-    } catch (e) {}
-
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.text(billData.companyName.toUpperCase(), pageWidth / 2, 40, { align: 'center' });
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(203, 213, 225);
-    doc.text(billData.companyAddress, pageWidth / 2, 46, { align: 'center' });
-
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("BILL TO", 15, 70);
-    doc.setDrawColor(37, 99, 235);
-    doc.line(15, 72, 35, 72);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(billData.customerName || 'Valued Client', 15, 80);
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(71, 85, 105);
-    const splitAddr = doc.splitTextToSize(billData.customerAddress || 'Address Details', 70);
-    doc.text(splitAddr, 15, 85);
-
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(pageWidth - 75, 65, 60, 25, 3, 3, 'F');
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text(`INVOICE NO:`, pageWidth - 70, 73);
-    doc.setFont("helvetica", "normal");
-    doc.text(`#${billData.invoiceNo}`, pageWidth - 20, 73, { align: 'right' });
-    
-    doc.setFont("helvetica", "bold");
-    doc.text(`DATE:`, pageWidth - 70, 81);
-    doc.setFont("helvetica", "normal");
-    doc.text(billData.invoiceDate, pageWidth - 20, 81, { align: 'right' });
-
-    autoTable(doc, {
-      startY: 100,
-      head: [["SERVICE", "DETAILED DESCRIPTION", "RATE", "TOTAL"]],
-      body: billData.items.map(item => [
-        item.serviceName.toUpperCase() || '-',
-        item.description || '-',
-        `Rs. ${parseFloat(item.rate).toLocaleString()}`,
-        `Rs. ${item.amount.toLocaleString()}`
-      ]),
-      theme: 'plain',
-      headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
-      styles: { fontSize: 8, cellPadding: 5, textColor: [51, 65, 85], valign: 'middle' },
-      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 35 }, 1: { cellWidth: 85 }, 2: { halign: 'right' }, 3: { halign: 'right', fontStyle: 'bold' } },
-      alternateRowStyles: { fillColor: [241, 245, 249] }
+  const formatCurrency = (amount) => {
+    return '₹' + Number(amount).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     });
-
-    const finalY = doc.lastAutoTable.finalY + 15;
-    const summaryX = pageWidth - 80;
-
-    doc.setFontSize(9);
-    doc.setTextColor(100, 116, 139);
-    doc.text("Subtotal:", summaryX, finalY);
-    doc.setTextColor(15, 23, 42);
-    doc.text(`Rs. ${billData.subtotal.toLocaleString()}`, pageWidth - 15, finalY, { align: 'right' });
-
-    // Show discount if applied
-    if (billData.discount > 0) {
-      doc.setTextColor(100, 116, 139);
-      doc.text("Discount:", summaryX, finalY + 6);
-      doc.setTextColor(239, 68, 68);
-      const discountDisplay = billData.discountType === 'percentage' 
-        ? `- Rs. ${((billData.subtotal * billData.discount) / 100).toLocaleString()} (${billData.discount}%)`
-        : `- Rs. ${billData.discount.toLocaleString()}`;
-      doc.text(discountDisplay, pageWidth - 15, finalY + 6, { align: 'right' });
-    }
-
-    doc.setTextColor(100, 116, 139);
-    doc.text(`GST (${billData.gstRate}%):`, summaryX, finalY + 12);
-    doc.setTextColor(15, 23, 42);
-    doc.text(`Rs. ${billData.gstAmount.toLocaleString()}`, pageWidth - 15, finalY + 12, { align: 'right' });
-
-    doc.setFillColor(37, 99, 235);
-    doc.roundedRect(summaryX - 5, finalY + 18, 70, 14, 2, 2, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.text("TOTAL DUE", summaryX, finalY + 27);
-    doc.text(`Rs. ${billData.total.toLocaleString()}`, pageWidth - 15, finalY + 27, { align: 'right' });
-
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(9);
-    doc.text("Authorized Signature", 15, finalY + 50);
-    doc.line(15, finalY + 42, 60, finalY + 42);
-
-    doc.save(`Invoice_${billData.invoiceNo}.pdf`);
   };
 
-  return (
-    <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
-      
-      {/* NAVBAR (unchanged) */}
-      <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center gap-2">
-              <img src="/abc.webp" alt="Logo" className="w-8 h-8 object-contain" />
-              <span className="text-xl font-black text-slate-900 tracking-tighter">CHINGARI<span className="text-blue-600">MEDIA</span></span>
+  const addNewItem = () => {
+    const updatedData = {
+      ...billData, 
+      items: [...billData.items, { productName: '', quantity: 1, rate: 0, amount: 0}]
+    };
+    setBillData(updatedData);
+  };
+
+  const removeItem = (index) => {
+    if (billData.items.length > 1) {
+      const newItems = billData.items.filter((_, i) => i !== index);
+      const updatedData = { ...billData, items: newItems };
+      const calculatedData = calculateTotals(updatedData);
+      setBillData(calculatedData);
+    }
+  };
+
+  // ============================================================
+  // 🖨️ PRINT INVOICE
+  // ============================================================
+  const printInvoice = () => {
+    setIsPrinting(true);
+    setTimeout(() => {
+      const printWindow = window.open('', '_blank', 'width=600,height=800');
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Invoice ${billData.invoiceNo}</title>
+            <style>
+              body {
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                line-height: 1.4;
+                margin: 0;
+                padding: 20px;
+                max-width: 400px;
+                margin: 0 auto;
+              }
+              .center { text-align: center; }
+              .right { text-align: right; }
+              .bold { font-weight: bold; }
+              .separator { border-top: 1px dashed #000; margin: 10px 0; }
+              table { width: 100%; border-collapse: collapse; }
+              th, td { padding: 4px 2px; border-bottom: 1px solid #ddd; }
+              th { text-align: left; }
+              .footer { margin-top: 20px; text-align: center; font-size: 10px; }
+              .text-small { font-size: 10px; }
+              .text-xsmall { font-size: 9px; }
+              .d-flex { display: flex; }
+              .justify-content-between { justify-content: space-between; }
+              .fw-bold { font-weight: bold; }
+              .fs-5 { font-size: 1.25rem; }
+              .mt-2 { margin-top: 0.5rem; }
+              .mt-4 { margin-top: 1rem; }
+              .pt-3 { padding-top: 0.75rem; }
+              @media print {
+                body { margin: 0; padding: 10px; }
+                .no-print { display: none; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="center">
+              <h3 style="margin: 5px 0;">${billData.shopName}</h3>
+              <h4 style="margin: 5px 0;">${billData.shopSubtitle}</h4>
+              <p class="text-small" style="margin: 2px 0;">
+                ${billData.shopAddress}
+              </p>
+              <p class="text-small" style="margin: 2px 0;">
+                Phone: ${billData.shopPhone} | Email: ${billData.shopEmail}
+              </p>
             </div>
-            <div className="hidden md:flex items-center gap-8">
-              <a href="#" className="text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors">Dashboard</a>
-              <a href="#" className="text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors">Invoices</a>
-              <a href="#" className="text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors">Clients</a>
-              <button className="bg-blue-600 text-white px-5 py-2 rounded-full text-xs font-black hover:bg-blue-700 transition-all shadow-lg shadow-blue-100">NEW BILL</button>
+            
+            <div class="separator"></div>
+            
+            <div style="margin: 10px 0;">
+              <div><span class="bold">Order ID:</span> ${billData.invoiceNo}</div>
+              <div><span class="bold">Date:</span> ${billData.invoiceDate}</div>
+            </div>
+            
+            <div style="margin: 10px 0;">
+              <div class="bold">Customer Details:</div>
+              <div>${billData.customerName || 'Walk-in Customer'}</div>
+              ${billData.customerPhone ? `<div>${billData.customerPhone}</div>` : ''}
+              ${billData.customerAddress ? `<div class="text-small">${billData.customerAddress}</div>` : ''}
+            </div>
+            
+            <div class="separator"></div>
+            
+            <table>
+              <thead>
+                <tr>
+                  <th>QTY</th>
+                  <th>ITEM</th>
+                  <th class="right">AMOUNT</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${billData.items.map(item => `
+                  <tr>
+                    <td>${item.quantity || 1}</td>
+                    <td>
+                      <div>${item.productName || '-'}</div>
+                    </td>
+                    <td class="right">${formatCurrency(item.amount)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            
+            <div class="separator"></div>
+            
+            <div style="margin-top: 15px;">
+              <div class="d-flex justify-content-between">
+                <span>Subtotal:</span>
+                <span>${formatCurrency(billData.subtotal)}</span>
+              </div>
+              
+              ${billData.discount > 0 ? `
+                <div class="d-flex justify-content-between">
+                  <span>Discount:</span>
+                  <span>-${formatCurrency(billData.discountType === 'percentage' ? (billData.subtotal * billData.discount) / 100 : billData.discount)}</span>
+                </div>
+              ` : ''}
+              
+              ${billData.platformFee > 0 ? `
+                <div class="d-flex justify-content-between">
+                  <span>Platform Fee:</span>
+                  <span>${formatCurrency(billData.platformFee)}</span>
+                </div>
+              ` : ''}
+              
+              ${billData.handlingCharge > 0 ? `
+                <div class="d-flex justify-content-between">
+                  <span>Handling Charge:</span>
+                  <span>${formatCurrency(billData.handlingCharge)}</span>
+                </div>
+              ` : ''}
+              
+              ${billData.convenienceFee > 0 ? `
+                <div class="d-flex justify-content-between">
+                  <span>Convenience Fee:</span>
+                  <span>${formatCurrency(billData.convenienceFee)}</span>
+                </div>
+              ` : ''}
+              
+              ${billData.deliveryCharge > 0 ? `
+                <div class="d-flex justify-content-between">
+                  <span>Delivery Charge:</span>
+                  <span>${formatCurrency(billData.deliveryCharge)}</span>
+                </div>
+              ` : ''}
+              
+              <div class="d-flex justify-content-between">
+                <span>GST (${billData.gstRate}%):</span>
+                <span>${formatCurrency(billData.gstAmount)}</span>
+              </div>
+              
+              <div class="separator"></div>
+              
+              <div class="d-flex justify-content-between fw-bold fs-5">
+                <span>TOTAL:</span>
+                <span>${formatCurrency(billData.total)}</span>
+              </div>
+              
+              <div class="d-flex justify-content-between mt-2">
+                <span>Payment Status:</span>
+                <span>${billData.paymentStatus.toUpperCase()}</span>
+              </div>
+            </div>
+            
+            <div class="separator"></div>
+            
+            <div class="footer">
+              <div class="bold">*** THANK YOU ***</div>
+              <div>Visit again at ${billData.shopName}</div>      
+            </div>
+
+            <div class="footer no-print" style="margin-top:20px;">
+              <button onclick="window.print()" style="padding:10px 30px; background:#dc2626; color:white; border:none; border-radius:8px; font-size:14px; cursor:pointer; margin:10px;">
+                🖨️ Print Invoice
+              </button>
+              <button onclick="window.close()" style="padding:10px 30px; background:#6b7280; color:white; border:none; border-radius:8px; font-size:14px; cursor:pointer; margin:10px;">
+                ✕ Close
+              </button>
+            </div>
+            <script>
+              setTimeout(() => { window.print(); }, 500);
+            <\/script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      setIsPrinting(false);
+    }, 300);
+  };
+
+  // ============================================================
+  // 📄 PDF DOWNLOAD - PERFECT FORMATTING
+  // ============================================================
+  const downloadPDF = () => {
+    setIsLoading(true);
+    setTimeout(() => {
+      const doc = new jsPDF('p', 'mm', 'a5');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      
+      // ===== CLEAN PDF =====
+      
+      // Shop Header
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(0, 0, 0);
+      doc.text(billData.shopName.toUpperCase(), pageWidth / 2, 15, { align: 'center' });
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(billData.shopSubtitle, pageWidth / 2, 22, { align: 'center' });
+      
+      doc.setFontSize(8);
+      doc.setTextColor(80, 80, 80);
+      doc.text(billData.shopAddress, pageWidth / 2, 28, { align: 'center' });
+      doc.text(`Phone: ${billData.shopPhone} | Email: ${billData.shopEmail}`, pageWidth / 2, 34, { align: 'center' });
+      
+      // Separator
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.2);
+      doc.line(8, 40, pageWidth - 8, 40);
+      
+      // Order Details
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Order ID: ${billData.invoiceNo}`, 8, 48);
+      doc.text(`Date: ${billData.invoiceDate}`, 8, 54);
+      
+      // Customer Details
+      doc.setFont("helvetica", "bold");
+      doc.text('Customer Details:', 8, 64);
+      doc.setFont("helvetica", "normal");
+      doc.text(billData.customerName || 'Walk-in Customer', 8, 70);
+      let cusY = 76;
+      if (billData.customerPhone) {
+        doc.text(billData.customerPhone, 8, cusY);
+        cusY += 6;
+      }
+      if (billData.customerAddress) {
+        const addrSplit = doc.splitTextToSize(billData.customerAddress, 70);
+        doc.text(addrSplit, 8, cusY);
+      }
+      
+      // Separator
+      doc.line(8, 90, pageWidth - 8, 90);
+      
+      // Items Table
+      autoTable(doc, {
+        startY: 94,
+        head: [[
+          { content: 'QTY', styles: { cellWidth: 12, halign: 'center', fontSize: 7 } },
+          { content: 'ITEM', styles: { cellWidth: 65, fontSize: 7 } },
+          { content: 'AMOUNT', styles: { cellWidth: 30, halign: 'right', fontSize: 7 } },
+        ]],
+        body: billData.items.map((item) => [
+          item.quantity || 1,
+          item.productName || '-',
+          `₹${Number(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        ]),
+        theme: 'plain',
+        headStyles: { 
+          fillColor: [240, 240, 240], 
+          textColor: [0, 0, 0], 
+          fontSize: 7, 
+          fontStyle: 'bold',
+          halign: 'left',
+          cellPadding: 2,
+        },
+        styles: { 
+          fontSize: 7, 
+          cellPadding: 3, 
+          textColor: [0, 0, 0],
+          valign: 'middle',
+          lineColor: [200, 200, 200],
+          lineWidth: 0.1,
+        },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 12 },
+          1: { cellWidth: 65 },
+          2: { halign: 'right', cellWidth: 30 },
+        },
+        margin: { left: 8, right: 8 },
+        tableWidth: pageWidth - 16,
+      });
+      
+      const finalY = doc.lastAutoTable.finalY + 4;
+      
+      // Separator
+      doc.line(8, finalY, pageWidth - 8, finalY);
+      
+      // Price Breakdown
+      let priceY = finalY + 6;
+      
+      const addRow = (label, value) => {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(0, 0, 0);
+        doc.text(label, 8, priceY);
+        doc.text(value, pageWidth - 8, priceY, { align: 'right' });
+        priceY += 6;
+      };
+      
+      addRow('Subtotal:', formatCurrency(billData.subtotal));
+      
+      if (billData.discount > 0) {
+        const discAmount = billData.discountType === 'percentage' 
+          ? (billData.subtotal * billData.discount) / 100
+          : billData.discount;
+        addRow('Discount:', `-${formatCurrency(discAmount)}`);
+      }
+      
+      if (billData.platformFee > 0) {
+        addRow('Platform Fee:', formatCurrency(billData.platformFee));
+      }
+      if (billData.handlingCharge > 0) {
+        addRow('Handling Charge:', formatCurrency(billData.handlingCharge));
+      }
+      if (billData.convenienceFee > 0) {
+        addRow('Convenience Fee:', formatCurrency(billData.convenienceFee));
+      }
+      if (billData.deliveryCharge > 0) {
+        addRow('Delivery Charge:', formatCurrency(billData.deliveryCharge));
+      }
+      
+      addRow(`GST (${billData.gstRate}%):`, formatCurrency(billData.gstAmount));
+      
+      // Separator
+      priceY += 2;
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.3);
+      doc.line(8, priceY, pageWidth - 8, priceY);
+      priceY += 6;
+      
+      // Total
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text('TOTAL:', 8, priceY);
+      doc.text(formatCurrency(billData.total), pageWidth - 8, priceY, { align: 'right' });
+      priceY += 8;
+      
+      // Payment Status
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text('Payment Status:', 8, priceY);
+      doc.text(billData.paymentStatus.toUpperCase(), pageWidth - 8, priceY, { align: 'right' });
+      priceY += 10;
+      
+      // Separator
+      doc.line(8, priceY, pageWidth - 8, priceY);
+      priceY += 8;
+      
+      // Footer
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text('*** THANK YOU ***', pageWidth / 2, priceY, { align: 'center' });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Visit again at ${billData.shopName}`, pageWidth / 2, priceY + 6, { align: 'center' });
+      
+      doc.save(`Invoice_${billData.invoiceNo}.pdf`);
+      setIsLoading(false);
+    }, 500);
+  };
+
+  const saveBill = () => {
+    const newBill = {
+      ...billData,
+      id: Date.now(),
+      savedAt: new Date().toISOString(),
+    };
+    const updatedBills = [newBill, ...savedBills];
+    setSavedBills(updatedBills);
+    localStorage.setItem('krishnaStoreBills', JSON.stringify(updatedBills));
+    alert('✅ Bill saved successfully!');
+  };
+
+  const resetBill = () => {
+    if (billData.items.length > 0 && billData.total > 0) {
+      if (!confirm('Save current bill before resetting?')) {
+        saveBill();
+      }
+    }
+    generateNewInvoice();
+    setBillData(prev => ({
+      ...prev,
+      customerName: '',
+      customerPhone: '',
+      customerAddress: '',
+      items: [{ productName: '', quantity: 1, rate: 0, amount: 0 }],
+      subtotal: 0,
+      gstAmount: 0,
+      discount: 0,
+      total: 0,
+      paymentMethod: 'Cash',
+      deliveryCharge: 0,
+      platformFee: 0,
+      handlingCharge: 0,
+      convenienceFee: 0,
+    }));
+  };
+
+  // ============================================================
+  // 🎨 RENDER
+  // ============================================================
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans">
+      <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-200">
+                <span className="text-lg">🛍️</span>
+              </div>
+              <div>
+                <span className="text-lg font-black text-slate-900">Krishna <span className="text-red-600">Store</span></span>
+                <span className="block text-[10px] text-slate-400 font-medium">Billing System</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full font-bold hidden sm:inline-block">
+                📋 {billData.invoiceNo}
+              </span>
+              <button 
+                onClick={resetBill}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md shadow-red-200 flex items-center gap-2"
+              >
+                <span>➕</span> New Bill
+              </button>
             </div>
           </div>
         </div>
       </nav>
 
-      <main className="flex-grow p-4 md:p-10">
-        <div className="max-w-5xl mx-auto">
-          <div className="bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-200 overflow-hidden">
-            
-            <div className="p-8 md:p-12">
-              {/* Form Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12">
-                <div className="space-y-4">
-                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] block">Client Information</label>
-                  <input 
-                    type="text" 
-                    placeholder="Client Name" 
-                    className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl transition-all outline-none font-bold text-slate-700" 
-                    value={billData.customerName}
-                    onChange={(e) => setBillData({...billData, customerName: e.target.value})} 
-                  />
-                  <textarea 
-                    placeholder="Client Address" 
-                    rows="3" 
-                    className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl transition-all outline-none text-slate-600 text-sm"
-                    value={billData.customerAddress}
-                    onChange={(e) => setBillData({...billData, customerAddress: e.target.value})} 
-                  />
-                </div>
-
-                <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-4">Invoice Settings</label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <span className="text-xs font-bold text-slate-500">Invoice ID</span>
-                      <p className="text-lg font-black text-slate-800">{billData.invoiceNo}</p>
-                    </div>
-                    <div className="space-y-2">
-                      <span className="text-xs font-bold text-slate-500">GST %</span>
-                      <input 
-                        type="number" 
-                        value={billData.gstRate} 
-                        className="w-full p-2 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-center font-bold" 
-                        onChange={(e) => {
-                          const updatedData = { ...billData, gstRate: parseFloat(e.target.value) || 0 };
-                          const calculatedData = calculateTotals(updatedData);
-                          setBillData(calculatedData);
-                        }} 
-                      />
-                    </div>
-                  </div>
-                </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* MAIN PANEL */}
+          <div className="lg:col-span-3 space-y-6">
+            {/* Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Items</p>
+                <p className="text-lg font-black text-slate-800">{billData.items.length}</p>
               </div>
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Subtotal</p>
+                <p className="text-lg font-black text-slate-800">{formatCurrency(billData.subtotal)}</p>
+              </div>
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">GST</p>
+                <p className="text-lg font-black text-slate-800">{formatCurrency(billData.gstAmount)}</p>
+              </div>
+              <div className="bg-gradient-to-br from-red-600 to-red-700 p-3 rounded-xl shadow-lg shadow-red-200">
+                <p className="text-[9px] text-red-200 font-bold uppercase tracking-wider">Total</p>
+                <p className="text-lg font-black text-white">{formatCurrency(billData.total)}</p>
+              </div>
+            </div>
 
-              {/* Items Table */}
-              <div className="mb-10">
-                <div className="space-y-3">
-                  {billData.items.map((item, index) => (
-                    <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 bg-white border border-slate-100 rounded-2xl hover:shadow-xl hover:shadow-slate-100 transition-all items-center group">
-                      <input 
-                        type="text" 
-                        placeholder="Service Name" 
-                        className="col-span-3 bg-slate-50 p-3 rounded-xl outline-none font-bold text-slate-700" 
-                        value={item.serviceName} 
-                        onChange={(e) => handleItemChange(index, 'serviceName', e.target.value)} 
-                      />
-                      <textarea 
-                        placeholder="Details..." 
-                        className="col-span-5 bg-slate-50 p-3 rounded-xl outline-none text-sm h-12" 
-                        value={item.description} 
-                        onChange={(e) => handleItemChange(index, 'description', e.target.value)} 
-                      />
-                      <input 
-                        type="number" 
-                        placeholder="Rate" 
-                        className="col-span-2 bg-slate-50 p-3 rounded-xl outline-none text-center font-bold" 
-                        value={item.rate} 
-                        onChange={(e) => handleItemChange(index, 'rate', e.target.value)} 
-                      />
-                      <div className="col-span-2 text-right font-black text-blue-600 px-2">Rs. {item.amount.toLocaleString()}</div>
-                    </div>
-                  ))}
-                </div>
+            {/* Customer */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+              <h3 className="text-sm font-black text-slate-700 mb-3 flex items-center gap-2">
+                <span className="w-7 h-7 bg-red-100 rounded-lg flex items-center justify-center text-red-600 text-xs">👤</span>
+                Customer Details
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <input 
+                  type="text" 
+                  placeholder="Customer Name" 
+                  className="w-full px-3 py-2.5 bg-slate-50 border-2 border-slate-200 focus:border-red-400 rounded-xl transition-all outline-none text-sm font-medium text-slate-700" 
+                  value={billData.customerName}
+                  onChange={(e) => setBillData({...billData, customerName: e.target.value})} 
+                />
+                <input 
+                  type="text" 
+                  placeholder="Phone Number" 
+                  className="w-full px-3 py-2.5 bg-slate-50 border-2 border-slate-200 focus:border-red-400 rounded-xl transition-all outline-none text-sm font-medium text-slate-700" 
+                  value={billData.customerPhone}
+                  onChange={(e) => setBillData({...billData, customerPhone: e.target.value})} 
+                />
+                <input 
+                  type="text" 
+                  placeholder="Address" 
+                  className="w-full px-3 py-2.5 bg-slate-50 border-2 border-slate-200 focus:border-red-400 rounded-xl transition-all outline-none text-sm font-medium text-slate-700" 
+                  value={billData.customerAddress}
+                  onChange={(e) => setBillData({...billData, customerAddress: e.target.value})} 
+                />
+              </div>
+            </div>
+
+            {/* Items */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+              <div className="flex flex-wrap justify-between items-center gap-3 mb-3">
+                <h3 className="text-sm font-black text-slate-700 flex items-center gap-2">
+                  <span className="w-7 h-7 bg-red-100 rounded-lg flex items-center justify-center text-red-600 text-xs">📦</span>
+                  Items
+                </h3>
                 <button 
-                  onClick={() => {
-                    const updatedData = {
-                      ...billData, 
-                      items: [...billData.items, {serviceName: '', description: '', quantity: 1, rate: 0, amount: 0}]
-                    };
-                    setBillData(updatedData);
-                  }} 
-                  className="w-full mt-4 py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                  onClick={addNewItem}
+                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
                 >
-                  + ADD NEW SERVICE
+                  <span>➕</span> Add Item
                 </button>
               </div>
 
-              {/* Discount and Total Section */}
-              <div className="flex flex-col md:flex-row justify-between items-start gap-10 border-t border-slate-100 pt-10">
-                <div className="w-full md:w-80 space-y-4 bg-slate-50 p-6 rounded-3xl">
-                  <h3 className="font-black text-slate-900 text-sm uppercase tracking-wider mb-4">Discount</h3>
-                  <div className="flex gap-2 mb-4">
-                    <button 
-                      onClick={() => handleDiscountChange(billData.discount, 'amount')}
-                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
-                        billData.discountType === 'amount' 
-                          ? 'bg-blue-600 text-white' 
-                          : 'bg-white text-slate-600 border border-slate-200'
-                      }`}
-                    >
-                      Fixed Amount
-                    </button>
-                    <button 
-                      onClick={() => handleDiscountChange(billData.discount, 'percentage')}
-                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
-                        billData.discountType === 'percentage' 
-                          ? 'bg-blue-600 text-white' 
-                          : 'bg-white text-slate-600 border border-slate-200'
-                      }`}
-                    >
-                      Percentage
-                    </button>
-                  </div>
-                  <input 
-                    type="number" 
-                    placeholder={billData.discountType === 'percentage' ? "Discount %" : "Discount Amount"}
-                    className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-center font-bold"
-                    value={billData.discount}
-                    onChange={(e) => handleDiscountChange(parseFloat(e.target.value) || 0)}
+              {/* Search */}
+              <div className="relative mb-3">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🔍</span>
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    placeholder="Search products..."
+                    className="w-full pl-8 pr-3 py-2 bg-slate-50 border-2 border-slate-200 focus:border-red-400 rounded-xl outline-none transition-all text-sm"
+                    value={searchTerm}
+                    onChange={(e) => handleProductSearch(e.target.value)}
                   />
                 </div>
+                {suggestions.length > 0 && (
+                  <div className="absolute w-full bg-white border border-slate-200 rounded-xl mt-1 shadow-xl z-20 max-h-56 overflow-y-auto">
+                    {suggestions.map((product, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2.5 hover:bg-red-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-0 transition-all"
+                        onClick={() => selectProduct(product)}
+                      >
+                        <span className="font-medium text-slate-800 text-sm">{product.name}</span>
+                        <span className="text-red-600 font-bold text-sm">{formatCurrency(product.rate)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                <div className="w-full md:w-80 space-y-4 bg-slate-50 p-6 rounded-3xl ml-auto">
-                  <div className="flex justify-between text-sm text-slate-500 font-medium px-2">
-                    <span>Subtotal</span>
-                    <span>Rs. {billData.subtotal.toLocaleString()}</span>
-                  </div>
-                  {billData.discount > 0 && (
-                    <div className="flex justify-between text-sm px-2">
-                      <span className="text-slate-500">Discount</span>
-                      <span className="text-red-500 font-medium">
-                        - Rs. {billData.discountType === 'percentage' 
-                          ? ((billData.subtotal * billData.discount) / 100).toLocaleString() 
-                          : billData.discount.toLocaleString()}
-                        {billData.discountType === 'percentage' && ` (${billData.discount}%)`}
-                      </span>
+              {/* Items List */}
+              <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
+                {billData.items.map((item, index) => (
+                  <div key={index} className="group bg-slate-50 hover:bg-white border-2 border-slate-200 hover:border-red-200 rounded-xl p-2.5 transition-all">
+                    <div className="grid grid-cols-12 gap-2 items-center">
+                      <div className="col-span-5">
+                        <input 
+                          type="text" 
+                          placeholder="Product name" 
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-red-400 text-sm font-medium text-slate-700 transition-all" 
+                          value={item.productName} 
+                          onChange={(e) => {
+                            handleItemChange(index, 'productName', e.target.value);
+                            handleProductSearch(e.target.value);
+                          }} 
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <input 
+                          type="number" 
+                          placeholder="Qty" 
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-red-400 text-center text-sm font-bold text-slate-700 transition-all" 
+                          value={item.quantity} 
+                          onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 1)} 
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <input 
+                          type="number" 
+                          placeholder="Rate" 
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-red-400 text-center text-sm font-bold text-slate-700 transition-all" 
+                          value={item.rate} 
+                          onChange={(e) => handleItemChange(index, 'rate', parseFloat(e.target.value) || 0)} 
+                        />
+                      </div>
+                      <div className="col-span-2 text-right font-bold text-red-600 text-sm">
+                        {formatCurrency(item.amount)}
+                      </div>
+                      <div className="col-span-1 text-right">
+                        {billData.items.length > 1 && (
+                          <button 
+                            onClick={() => removeItem(index)}
+                            className="w-6 h-6 rounded-lg bg-slate-200 hover:bg-red-500 hover:text-white text-slate-400 transition-all text-xs flex items-center justify-center"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  )}
-                  <div className="flex justify-between text-sm text-slate-500 font-medium px-2">
-                    <span>GST ({billData.gstRate}%)</span>
-                    <span>Rs. {billData.gstAmount.toLocaleString()}</span>
                   </div>
-                  <div className="border-t border-slate-200 pt-4">
-                    <div className="flex justify-between items-center px-2">
-                      <span className="font-bold text-slate-900 uppercase text-xs tracking-wider">Total Amount</span>
-                      <span className="text-2xl font-black text-blue-600 tracking-tighter">Rs. {billData.total.toLocaleString()}</span>
-                    </div>
-                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* SIDEBAR */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm sticky top-24">
+              {/* Invoice Info */}
+              <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
+                <div>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Invoice #</p>
+                  <p className="text-xs font-black text-slate-800">{billData.invoiceNo}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Date</p>
+                  <p className="text-xs font-bold text-slate-700">{billData.invoiceDate}</p>
                 </div>
               </div>
 
-              <button onClick={downloadPDF} className="w-full mt-10 py-6 bg-slate-900 text-white font-black rounded-3xl shadow-2xl hover:bg-blue-600 hover:-translate-y-1 transition-all uppercase tracking-[0.2em] text-sm">
-                GENERATE PDF INVOICE
-              </button>
+              {/* Extra Charges */}
+              <div className="mb-3">
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Extra Charges</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <input 
+                    type="number" 
+                    placeholder="Delivery" 
+                    className="px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-red-400 text-xs text-center"
+                    value={billData.deliveryCharge}
+                    onChange={(e) => {
+                      const updatedData = { ...billData, deliveryCharge: parseFloat(e.target.value) || 0 };
+                      setBillData(calculateTotals(updatedData));
+                    }}
+                  />
+                  <input 
+                    type="number" 
+                    placeholder="Platform" 
+                    className="px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-red-400 text-xs text-center"
+                    value={billData.platformFee}
+                    onChange={(e) => {
+                      const updatedData = { ...billData, platformFee: parseFloat(e.target.value) || 0 };
+                      setBillData(calculateTotals(updatedData));
+                    }}
+                  />
+                  <input 
+                    type="number" 
+                    placeholder="Handling" 
+                    className="px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-red-400 text-xs text-center"
+                    value={billData.handlingCharge}
+                    onChange={(e) => {
+                      const updatedData = { ...billData, handlingCharge: parseFloat(e.target.value) || 0 };
+                      setBillData(calculateTotals(updatedData));
+                    }}
+                  />
+                  <input 
+                    type="number" 
+                    placeholder="Convenience" 
+                    className="px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-red-400 text-xs text-center"
+                    value={billData.convenienceFee}
+                    onChange={(e) => {
+                      const updatedData = { ...billData, convenienceFee: parseFloat(e.target.value) || 0 };
+                      setBillData(calculateTotals(updatedData));
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Discount */}
+              <div className="mb-3">
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Discount</p>
+                <div className="flex gap-1.5 mb-1.5">
+                  <button 
+                    onClick={() => handleDiscountChange(billData.discount, 'amount')}
+                    className={`flex-1 py-1 px-2 rounded-lg text-[9px] font-bold transition-all ${
+                      billData.discountType === 'amount' 
+                        ? 'bg-red-600 text-white' 
+                        : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    ₹ Fixed
+                  </button>
+                  <button 
+                    onClick={() => handleDiscountChange(billData.discount, 'percentage')}
+                    className={`flex-1 py-1 px-2 rounded-lg text-[9px] font-bold transition-all ${
+                      billData.discountType === 'percentage' 
+                        ? 'bg-red-600 text-white' 
+                        : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    %
+                  </button>
+                </div>
+                <input 
+                  type="number" 
+                  placeholder={billData.discountType === 'percentage' ? "Discount %" : "Discount Amount"}
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border-2 border-slate-200 focus:border-red-400 rounded-xl outline-none transition-all text-center font-bold text-sm text-slate-700"
+                  value={billData.discount}
+                  onChange={(e) => handleDiscountChange(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+
+              {/* GST */}
+              <div className="mb-3">
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">GST Rate</p>
+                <div className="grid grid-cols-5 gap-1">
+                  {[0, 5, 12, 18, 28].map(rate => (
+                    <button
+                      key={rate}
+                      onClick={() => {
+                        const updatedData = { ...billData, gstRate: rate };
+                        setBillData(calculateTotals(updatedData));
+                      }}
+                      className={`py-1 rounded-lg text-[9px] font-bold transition-all ${
+                        billData.gstRate === rate 
+                          ? 'bg-red-600 text-white' 
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {rate}%
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Payment */}
+              <div className="mb-3">
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Payment</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {['Cash', 'UPI', 'Card', 'Bank Transfer'].map(method => (
+                    <button
+                      key={method}
+                      onClick={() => setBillData({...billData, paymentMethod: method})}
+                      className={`py-1.5 px-2 rounded-lg text-[9px] font-bold transition-all ${
+                        billData.paymentMethod === method 
+                          ? 'bg-red-600 text-white' 
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {method}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Total */}
+              <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl p-3 border-2 border-red-200 mb-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-slate-600">TOTAL</span>
+                  <span className="text-2xl font-black text-red-600">{formatCurrency(billData.total)}</span>
+                </div>
+                <div className="flex justify-between text-[9px] text-slate-500 mt-0.5">
+                  <span>Subtotal: {formatCurrency(billData.subtotal)}</span>
+                  <span>GST: {formatCurrency(billData.gstAmount)}</span>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="space-y-1.5">
+                <button 
+                  onClick={printInvoice}
+                  disabled={isPrinting}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 text-sm"
+                >
+                  🖨️ Print Invoice
+                </button>
+                <button 
+                  onClick={downloadPDF} 
+                  disabled={isLoading}
+                  className="w-full py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold rounded-xl shadow-lg shadow-red-200 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                >
+                  {isLoading ? '⏳ Generating...' : '📄 Download PDF'}
+                </button>
+                <button 
+                  onClick={saveBill}
+                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm"
+                >
+                  💾 Save Bill
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </main>
+      </div>
 
-      {/* FOOTER (unchanged) */}
-      <footer className="bg-slate-900 text-white pt-16 pb-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
-            <div className="col-span-1 md:col-span-2">
-              <div className="flex items-center gap-2 mb-6">
-                <img src="/abc.webp" alt="Logo" className="w-10 h-10 object-contain brightness-0 invert" />
-                <span className="text-2xl font-black tracking-tighter">CHINGARI MEDIA</span>
-              </div>
-              <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
-                Providing premium digital media solutions and professional billing services for modern businesses.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-bold text-white mb-6 uppercase text-xs tracking-widest">Quick Links</h4>
-              <ul className="space-y-4 text-slate-400 text-sm">
-                <li><a href="#" className="hover:text-blue-400 transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-blue-400 transition-colors">Terms of Service</a></li>
-                <li><a href="#" className="hover:text-blue-400 transition-colors">Support Center</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold text-white mb-6 uppercase text-xs tracking-widest">Connect</h4>
-              <div className="flex gap-4">
-                <a href="#" className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center hover:bg-blue-600 transition-all text-sm">FB</a>
-                <a href="#" className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center hover:bg-blue-600 transition-all text-sm">IG</a>
-                <a href="#" className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center hover:bg-blue-600 transition-all text-sm">TW</a>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-slate-800 pt-8 text-center">
-            <p className="text-slate-500 text-xs font-bold tracking-widest uppercase">
-              © 2026 Chingari Media. All Rights Reserved.
+      {/* FOOTER */}
+      <footer className="bg-white border-t border-slate-200 mt-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+            <p className="text-xs text-slate-400 font-bold tracking-wider">
+              © 2026 Krishna Store - Billing System
             </p>
+            <div className="flex gap-4 text-xs text-slate-400">
+              <span>🛍️ {billData.items.length} items</span>
+              <span>📋 {billData.invoiceNo}</span>
+              <span>💳 {billData.paymentMethod}</span>
+            </div>
           </div>
         </div>
       </footer>
+
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #e2e8f0;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #cbd5e1;
+        }
+      `}</style>
     </div>
   );
 }
