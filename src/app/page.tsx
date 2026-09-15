@@ -52,6 +52,8 @@ export default function BillingPage() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [newProduct, setNewProduct] = useState({ barcode: '', name: '', rate: '', stock: '' });
   const [saving, setSaving] = useState(false);
+  const [showManualAdd, setShowManualAdd] = useState(false);
+  const [manualProduct, setManualProduct] = useState({ name: '', rate: '', quantity: 1 });
 
   const html5QrcodeRef = useRef<any>(null);
 
@@ -165,7 +167,7 @@ export default function BillingPage() {
 
   const addProductToBill = (product: any) => {
     const existingIndex = billData.items.findIndex(
-      (item: any) => item.barcode === product.barcode
+      (item: any) => item.barcode === product.barcode && product.barcode
     );
 
     let newItems;
@@ -182,7 +184,7 @@ export default function BillingPage() {
         quantity: 1,
         rate: product.rate,
         amount: product.rate,
-        barcode: product.barcode,
+        barcode: product.barcode || '',
       };
       if (newItems[lastIndex].productName === '' && newItems[lastIndex].rate === 0) {
         newItems[lastIndex] = newItem;
@@ -194,6 +196,39 @@ export default function BillingPage() {
 
     setBillData(calculateTotals({ ...billData, items: newItems }));
     setLastScanned({ code: product.barcode, time: new Date().toLocaleTimeString() });
+    setTimeout(() => setScanStatus(''), 2500);
+  };
+
+  // ============================================================
+  // 🖐️ MANUAL PRODUCT ADD (scanner ke bina)
+  // ============================================================
+  const addManualProduct = () => {
+    if (!manualProduct.name || !manualProduct.rate) {
+      alert('Product name aur rate dono bharo!');
+      return;
+    }
+
+    const product = {
+      productName: manualProduct.name.trim(),
+      quantity: parseInt(String(manualProduct.quantity)) || 1,
+      rate: parseFloat(manualProduct.rate) || 0,
+      amount: (parseInt(String(manualProduct.quantity)) || 1) * (parseFloat(manualProduct.rate) || 0),
+      barcode: '',
+    };
+
+    const newItems = [...billData.items];
+    const lastIndex = newItems.length - 1;
+
+    if (newItems[lastIndex].productName === '' && newItems[lastIndex].rate === 0) {
+      newItems[lastIndex] = product;
+    } else {
+      newItems.push(product);
+    }
+
+    setBillData(calculateTotals({ ...billData, items: newItems }));
+    setManualProduct({ name: '', rate: '', quantity: 1 });
+    setShowManualAdd(false);
+    setScanStatus(`✅ Added manually: ${product.productName}`);
     setTimeout(() => setScanStatus(''), 2500);
   };
 
@@ -384,6 +419,10 @@ export default function BillingPage() {
     }));
   };
 
+  const handleGstChange = (rate: number) => {
+    setBillData(calculateTotals({ ...billData, gstRate: rate }));
+  };
+
   const formatCurrency = (amount: number) => {
     return '₹' + Number(amount).toLocaleString('en-IN', {
       minimumFractionDigits: 2, maximumFractionDigits: 2
@@ -505,22 +544,22 @@ export default function BillingPage() {
   };
 
   // ============================================================
-  // 🎨 RENDER
+  // 🎨 RENDER (DARK THEME)
   // ============================================================
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <nav className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+      <nav className="bg-slate-950 border-b border-slate-800 sticky top-0 z-40 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-900/50">
               <span className="text-lg">🛍️</span>
             </div>
             <div>
-              <span className="text-lg font-black text-slate-900">Krishna <span className="text-red-600">Store</span></span>
+              <span className="text-lg font-black text-white">Krishna <span className="text-red-500">Store</span></span>
               <span className={`block text-[10px] font-bold ${
-                dbStatus === 'connected' ? 'text-green-600' :
-                dbStatus === 'error' ? 'text-red-600' : 'text-amber-600'
+                dbStatus === 'connected' ? 'text-green-400' :
+                dbStatus === 'error' ? 'text-red-400' : 'text-amber-400'
               }`}>
                 {dbStatus === 'connected' && '🟢 Firebase Connected'}
                 {dbStatus === 'connecting' && '🟡 Connecting...'}
@@ -529,10 +568,10 @@ export default function BillingPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/admin" className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1">
+            <Link href="/admin" className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-slate-700">
               ⚙️ Admin
             </Link>
-            <button onClick={handleNewBill} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-bold">
+            <button onClick={handleNewBill} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-red-900/50">
               ➕ New Bill
             </button>
           </div>
@@ -542,45 +581,98 @@ export default function BillingPage() {
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+          <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
             <p className="text-[9px] text-slate-400 font-bold uppercase">Items</p>
-            <p className="text-lg font-black text-slate-800">{billData.items.filter((i: any) => i.productName).length}</p>
+            <p className="text-lg font-black text-white">{billData.items.filter((i: any) => i.productName).length}</p>
           </div>
-          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+          <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
             <p className="text-[9px] text-slate-400 font-bold uppercase">Subtotal</p>
-            <p className="text-lg font-black text-slate-800">{formatCurrency(billData.subtotal)}</p>
+            <p className="text-lg font-black text-white">{formatCurrency(billData.subtotal)}</p>
           </div>
-          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-            <p className="text-[9px] text-slate-400 font-bold uppercase">GST</p>
-            <p className="text-lg font-black text-slate-800">{formatCurrency(billData.gstAmount)}</p>
+          <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
+            <p className="text-[9px] text-slate-400 font-bold uppercase">GST ({billData.gstRate}%)</p>
+            <p className="text-lg font-black text-white">{formatCurrency(billData.gstAmount)}</p>
           </div>
-          <div className="bg-gradient-to-br from-red-600 to-red-700 p-3 rounded-xl shadow-lg">
+          <div className="bg-gradient-to-br from-red-600 to-red-800 p-3 rounded-xl shadow-lg shadow-red-900/50">
             <p className="text-[9px] text-red-200 font-bold uppercase">Total</p>
             <p className="text-lg font-black text-white">{formatCurrency(billData.total)}</p>
           </div>
         </div>
 
-        {/* Scanner */}
-        <div className="bg-white rounded-2xl border-2 border-red-300 p-5 shadow-lg">
-          <h3 className="text-sm font-black text-slate-700 mb-3 flex items-center gap-2">
+        {/* Scanner + Manual Add */}
+        <div className="bg-slate-900 rounded-2xl border-2 border-red-900/50 p-5 shadow-lg">
+          <h3 className="text-sm font-black text-white mb-3 flex items-center gap-2">
             📷 Barcode Scanner
-            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold ml-auto">
-              {products.length} products in Firebase
+            <span className="text-[10px] bg-green-900/50 text-green-400 px-2 py-0.5 rounded-full font-bold ml-auto border border-green-800">
+              {products.length} products
             </span>
           </h3>
 
-          <button
-            onClick={startCameraScanner}
-            className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-black rounded-xl shadow-lg transition-all flex items-center justify-center gap-3 text-base mb-3"
-          >
-            <span className="text-2xl">📷</span>
-            Camera se Scan Karo
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <button
+              onClick={startCameraScanner}
+              className="py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-black rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm border border-red-500/50"
+            >
+              <span className="text-xl">📷</span>
+              Camera Scan
+            </button>
+            <button
+              onClick={() => setShowManualAdd(!showManualAdd)}
+              className="py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-black rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm border border-blue-500/50"
+            >
+              <span className="text-xl">🖐️</span>
+              Manual Add
+            </button>
+          </div>
+
+          {/* Manual Add Form */}
+          {showManualAdd && (
+            <div className="bg-slate-950 rounded-xl p-4 border border-blue-900/50 mb-3">
+              <p className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-3">
+                🖐️ Add Product Manually
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                <input
+                  type="text"
+                  placeholder="Product name"
+                  className="sm:col-span-5 px-3 py-2 bg-slate-900 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none text-sm text-white placeholder-slate-500"
+                  value={manualProduct.name}
+                  onChange={(e) => setManualProduct({ ...manualProduct, name: e.target.value })}
+                  onKeyDown={(e) => e.key === 'Enter' && addManualProduct()}
+                />
+                <input
+                  type="number"
+                  placeholder="Rate ₹"
+                  className="sm:col-span-3 px-3 py-2 bg-slate-900 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none text-sm text-white placeholder-slate-500 text-center font-bold"
+                  value={manualProduct.rate}
+                  onChange={(e) => setManualProduct({ ...manualProduct, rate: e.target.value })}
+                  onKeyDown={(e) => e.key === 'Enter' && addManualProduct()}
+                />
+                <input
+                  type="number"
+                  placeholder="Qty"
+                  className="sm:col-span-2 px-3 py-2 bg-slate-900 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none text-sm text-white placeholder-slate-500 text-center font-bold"
+                  value={manualProduct.quantity}
+                  onChange={(e) => setManualProduct({ ...manualProduct, quantity: parseInt(e.target.value) || 1 })}
+                  onKeyDown={(e) => e.key === 'Enter' && addManualProduct()}
+                />
+                <button
+                  onClick={addManualProduct}
+                  className="sm:col-span-2 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm"
+                >
+                  ➕ Add
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-2">
+                💡 Ye product bill me add hoga but database me save nahi hoga (one-time item)
+              </p>
+            </div>
+          )}
 
           <input
             type="text"
             placeholder="Ya barcode number type karo + Enter"
-            className="w-full px-3 py-2 bg-slate-50 border-2 border-slate-200 focus:border-red-400 rounded-xl outline-none text-sm"
+            className="w-full px-3 py-2 bg-slate-950 border-2 border-slate-800 focus:border-red-500 rounded-xl outline-none text-sm text-white placeholder-slate-500"
             value={manualBarcode}
             onChange={(e) => setManualBarcode(e.target.value)}
             onKeyDown={handleManualBarcode}
@@ -588,9 +680,9 @@ export default function BillingPage() {
 
           {scanStatus && (
             <div className={`mt-2 text-xs font-bold p-2 rounded-lg ${
-              scanStatus.includes('❌') ? 'bg-red-100 text-red-700' :
-              scanStatus.includes('✅') ? 'bg-green-100 text-green-700' :
-              'bg-blue-100 text-blue-700'
+              scanStatus.includes('❌') ? 'bg-red-950 text-red-400 border border-red-900' :
+              scanStatus.includes('✅') ? 'bg-green-950 text-green-400 border border-green-900' :
+              'bg-blue-950 text-blue-400 border border-blue-900'
             }`}>
               {scanStatus}
             </div>
@@ -598,55 +690,91 @@ export default function BillingPage() {
         </div>
 
         {/* Customer Details */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-sm font-black text-slate-700 mb-3 flex items-center gap-2">
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-5 shadow-sm">
+          <h3 className="text-sm font-black text-white mb-3 flex items-center gap-2">
             👤 Customer Details
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <input
               type="text"
               placeholder="Customer Name"
-              className="w-full px-3 py-2 bg-slate-50 border-2 border-slate-200 focus:border-red-400 rounded-xl outline-none text-sm"
+              className="w-full px-3 py-2 bg-slate-950 border-2 border-slate-800 focus:border-red-500 rounded-xl outline-none text-sm text-white placeholder-slate-500"
               value={billData.customerName}
               onChange={(e) => setBillData({ ...billData, customerName: e.target.value })}
             />
             <input
               type="text"
               placeholder="Phone Number"
-              className="w-full px-3 py-2 bg-slate-50 border-2 border-slate-200 focus:border-red-400 rounded-xl outline-none text-sm"
+              className="w-full px-3 py-2 bg-slate-950 border-2 border-slate-800 focus:border-red-500 rounded-xl outline-none text-sm text-white placeholder-slate-500"
               value={billData.customerPhone}
               onChange={(e) => setBillData({ ...billData, customerPhone: e.target.value })}
             />
             <input
               type="text"
               placeholder="Address"
-              className="w-full px-3 py-2 bg-slate-50 border-2 border-slate-200 focus:border-red-400 rounded-xl outline-none text-sm"
+              className="w-full px-3 py-2 bg-slate-950 border-2 border-slate-800 focus:border-red-500 rounded-xl outline-none text-sm text-white placeholder-slate-500"
               value={billData.customerAddress}
               onChange={(e) => setBillData({ ...billData, customerAddress: e.target.value })}
             />
           </div>
         </div>
 
+        {/* GST Rate Selector */}
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-5 shadow-sm">
+          <h3 className="text-sm font-black text-white mb-3 flex items-center gap-2">
+            📊 GST Rate <span className="text-[10px] text-slate-400 font-normal">(click to change)</span>
+          </h3>
+          <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+            {[0, 5, 10, 12, 18].map((rate) => (
+              <button
+                key={rate}
+                onClick={() => handleGstChange(rate)}
+                className={`py-3 rounded-xl text-sm font-black transition-all border-2 ${
+                  billData.gstRate === rate
+                    ? 'bg-gradient-to-br from-red-600 to-red-700 text-white border-red-500 shadow-lg shadow-red-900/50'
+                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-600'
+                }`}
+              >
+                {rate}%
+              </button>
+            ))}
+            <div className="col-span-4 sm:col-span-5 mt-1 flex items-center gap-2">
+              <span className="text-xs text-slate-500">Custom:</span>
+              <input
+                type="number"
+                placeholder="Enter custom GST %"
+                className="flex-1 px-3 py-2 bg-slate-950 border-2 border-slate-800 focus:border-red-500 rounded-xl outline-none text-sm text-white placeholder-slate-500"
+                value={billData.gstRate}
+                onChange={(e) => handleGstChange(parseFloat(e.target.value) || 0)}
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Items */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-sm font-black text-slate-700 mb-3">
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-5 shadow-sm">
+          <h3 className="text-sm font-black text-white mb-3">
             📦 Items ({billData.items.filter((i: any) => i.productName).length})
           </h3>
 
           <div className="relative mb-3">
             <input
               type="text"
-              placeholder="Search products..."
-              className="w-full px-3 py-2 bg-slate-50 border-2 border-slate-200 focus:border-red-400 rounded-xl outline-none text-sm"
+              placeholder="Search products by name or barcode..."
+              className="w-full px-3 py-2 bg-slate-950 border-2 border-slate-800 focus:border-red-500 rounded-xl outline-none text-sm text-white placeholder-slate-500"
               value={searchTerm}
               onChange={(e) => handleProductSearch(e.target.value)}
             />
             {suggestions.length > 0 && (
-              <div className="absolute w-full bg-white border border-slate-200 rounded-xl mt-1 shadow-xl z-20 max-h-56 overflow-y-auto">
+              <div className="absolute w-full bg-slate-950 border border-slate-700 rounded-xl mt-1 shadow-xl z-20 max-h-56 overflow-y-auto">
                 {suggestions.map((product: any, idx: number) => (
-                  <div key={idx} className="p-2.5 hover:bg-red-50 cursor-pointer flex justify-between" onClick={() => selectProduct(product)}>
-                    <span className="text-sm">{product.name}</span>
-                    <span className="text-red-600 font-bold text-sm">{formatCurrency(product.rate)}</span>
+                  <div
+                    key={idx}
+                    className="p-2.5 hover:bg-slate-800 cursor-pointer flex justify-between border-b border-slate-800 last:border-0"
+                    onClick={() => selectProduct(product)}
+                  >
+                    <span className="text-sm text-white">{product.name}</span>
+                    <span className="text-red-400 font-bold text-sm">{formatCurrency(product.rate)}</span>
                   </div>
                 ))}
               </div>
@@ -655,37 +783,73 @@ export default function BillingPage() {
 
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {billData.items.map((item: any, index: number) => (
-              <div key={index} className={`border-2 rounded-xl p-2.5 ${item.productName ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
+              <div key={index} className={`border-2 rounded-xl p-2.5 ${
+                item.productName
+                  ? 'bg-green-950/30 border-green-800/50'
+                  : 'bg-slate-950 border-slate-800'
+              }`}>
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-5">
-                    <input type="text" placeholder="Product" className="w-full px-2 py-1.5 border rounded-lg text-sm" value={item.productName} onChange={(e) => handleItemChange(index, 'productName', e.target.value)} />
-                    {item.barcode && <span className="text-[9px] text-slate-400">📷 {item.barcode}</span>}
+                    <input
+                      type="text"
+                      placeholder="Product name"
+                      className="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 outline-none focus:border-red-500"
+                      value={item.productName}
+                      onChange={(e) => handleItemChange(index, 'productName', e.target.value)}
+                    />
+                    {item.barcode && (
+                      <span className="text-[9px] text-slate-500">📷 {item.barcode}</span>
+                    )}
                   </div>
-                  <input type="number" placeholder="Qty" className="col-span-2 px-2 py-1.5 border rounded-lg text-center text-sm font-bold" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 1)} />
-                  <input type="number" placeholder="Rate" className="col-span-2 px-2 py-1.5 border rounded-lg text-center text-sm font-bold" value={item.rate} onChange={(e) => handleItemChange(index, 'rate', parseFloat(e.target.value) || 0)} />
-                  <div className="col-span-2 text-right font-bold text-red-600 text-sm">{formatCurrency(item.amount)}</div>
-                  <button onClick={() => removeItem(index)} className="col-span-1 w-6 h-6 bg-slate-200 hover:bg-red-500 hover:text-white rounded-lg text-xs">✕</button>
+                  <input
+                    type="number"
+                    placeholder="Qty"
+                    className="col-span-2 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-center text-sm font-bold text-white outline-none focus:border-red-500"
+                    value={item.quantity}
+                    onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 1)}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Rate"
+                    className="col-span-2 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-center text-sm font-bold text-white outline-none focus:border-red-500"
+                    value={item.rate}
+                    onChange={(e) => handleItemChange(index, 'rate', parseFloat(e.target.value) || 0)}
+                  />
+                  <div className="col-span-2 text-right font-bold text-red-400 text-sm">
+                    {formatCurrency(item.amount)}
+                  </div>
+                  <button
+                    onClick={() => removeItem(index)}
+                    className="col-span-1 w-6 h-6 bg-slate-800 hover:bg-red-600 hover:text-white text-slate-400 rounded-lg text-xs transition-all"
+                  >
+                    ✕
+                  </button>
                 </div>
               </div>
             ))}
           </div>
 
-          <button onClick={addNewItem} className="mt-3 bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">➕ Add Item</button>
+          <button
+            onClick={addNewItem}
+            className="mt-3 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-700"
+          >
+            ➕ Add Empty Row
+          </button>
         </div>
 
         {/* Payment + Discount */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+          <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4">
             <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">Payment Method</p>
             <div className="grid grid-cols-2 gap-2">
               {['Cash', 'UPI', 'Card', 'Bank Transfer'].map((method) => (
                 <button
                   key={method}
                   onClick={() => setBillData({ ...billData, paymentMethod: method })}
-                  className={`py-2 rounded-xl text-xs font-bold transition-all ${
+                  className={`py-2 rounded-xl text-xs font-bold transition-all border-2 ${
                     billData.paymentMethod === method
-                      ? 'bg-red-600 text-white'
-                      : 'bg-slate-100 text-slate-600'
+                      ? 'bg-red-600 text-white border-red-500'
+                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-600'
                   }`}
                 >
                   {method}
@@ -694,21 +858,25 @@ export default function BillingPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+          <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4">
             <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">Discount</p>
             <div className="flex gap-2 mb-2">
               <button
                 onClick={() => handleDiscountChange(billData.discount, 'amount')}
-                className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold ${
-                  billData.discountType === 'amount' ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-600'
+                className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold border-2 ${
+                  billData.discountType === 'amount'
+                    ? 'bg-red-600 text-white border-red-500'
+                    : 'bg-slate-950 text-slate-400 border-slate-800'
                 }`}
               >
                 ₹ Fixed
               </button>
               <button
                 onClick={() => handleDiscountChange(billData.discount, 'percentage')}
-                className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold ${
-                  billData.discountType === 'percentage' ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-600'
+                className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold border-2 ${
+                  billData.discountType === 'percentage'
+                    ? 'bg-red-600 text-white border-red-500'
+                    : 'bg-slate-950 text-slate-400 border-slate-800'
                 }`}
               >
                 % Percentage
@@ -717,7 +885,7 @@ export default function BillingPage() {
             <input
               type="number"
               placeholder="Discount amount"
-              className="w-full px-3 py-2 bg-slate-50 border-2 border-slate-200 focus:border-red-400 rounded-xl outline-none text-sm text-center font-bold"
+              className="w-full px-3 py-2 bg-slate-950 border-2 border-slate-800 focus:border-red-500 rounded-xl outline-none text-sm text-white placeholder-slate-500 text-center font-bold"
               value={billData.discount}
               onChange={(e) => handleDiscountChange(parseFloat(e.target.value) || 0)}
             />
@@ -725,22 +893,22 @@ export default function BillingPage() {
         </div>
 
         {/* Total */}
-        <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl p-4 border-2 border-red-200">
+        <div className="bg-gradient-to-br from-slate-900 to-slate-950 rounded-2xl p-4 border-2 border-red-900/50">
           <div className="flex justify-between items-center mb-3">
-            <span className="text-sm font-bold text-slate-600">TOTAL</span>
-            <span className="text-3xl font-black text-red-600">{formatCurrency(billData.total)}</span>
+            <span className="text-sm font-bold text-slate-400">TOTAL</span>
+            <span className="text-3xl font-black text-red-500">{formatCurrency(billData.total)}</span>
           </div>
           <div className="flex gap-2">
             <button
               onClick={printInvoice}
-              className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-sm transition-all"
+              className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold text-sm transition-all border border-slate-700"
             >
               🖨️ Print
             </button>
             <button
               onClick={saveBill}
               disabled={saving}
-              className="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm transition-all disabled:opacity-50"
+              className="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm transition-all disabled:opacity-50 shadow-lg shadow-green-900/50"
             >
               {saving ? '💾 Saving...' : '💾 Save Bill'}
             </button>
@@ -750,44 +918,73 @@ export default function BillingPage() {
 
       {/* Loading */}
       {loading && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-2xl p-6 text-center">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
+          <div className="bg-slate-900 rounded-2xl p-6 text-center border border-slate-800">
             <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-sm font-bold">Firebase se products load ho rahe hain...</p>
+            <p className="text-sm font-bold text-white">Firebase se products load ho rahe hain...</p>
           </div>
         </div>
       )}
 
       {/* NEW PRODUCT MODAL */}
       {showNewProductModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-800">
             <div className="text-center mb-4">
-              <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-2">
+              <div className="w-16 h-16 bg-amber-900/50 rounded-full flex items-center justify-center mx-auto mb-2 border border-amber-800">
                 <span className="text-3xl">🆕</span>
               </div>
-              <h2 className="text-lg font-black text-slate-800">Naya Product!</h2>
-              <p className="text-xs text-slate-500 mt-1">Barcode: <strong>{newProduct.barcode}</strong></p>
+              <h2 className="text-lg font-black text-white">Naya Product!</h2>
+              <p className="text-xs text-slate-400 mt-1">Barcode: <strong className="text-white">{newProduct.barcode}</strong></p>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-slate-600 mb-1 block">Product Name *</label>
-                <input type="text" placeholder="e.g. Amul Butter 500g" className="w-full px-3 py-2 bg-slate-50 border-2 border-slate-200 focus:border-red-400 rounded-xl outline-none text-sm" value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} autoFocus />
+                <label className="text-xs font-bold text-slate-400 mb-1 block">Product Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Amul Butter 500g"
+                  className="w-full px-3 py-2 bg-slate-950 border-2 border-slate-800 focus:border-red-500 rounded-xl outline-none text-sm text-white placeholder-slate-500"
+                  value={newProduct.name}
+                  onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                  autoFocus
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-600 mb-1 block">Rate (₹) *</label>
-                  <input type="number" placeholder="0" className="w-full px-3 py-2 bg-slate-50 border-2 border-slate-200 focus:border-red-400 rounded-xl outline-none text-sm" value={newProduct.rate} onChange={(e) => setNewProduct({ ...newProduct, rate: e.target.value })} />
+                  <label className="text-xs font-bold text-slate-400 mb-1 block">Rate (₹) *</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    className="w-full px-3 py-2 bg-slate-950 border-2 border-slate-800 focus:border-red-500 rounded-xl outline-none text-sm text-white placeholder-slate-500"
+                    value={newProduct.rate}
+                    onChange={(e) => setNewProduct({ ...newProduct, rate: e.target.value })}
+                  />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-600 mb-1 block">Stock</label>
-                  <input type="number" placeholder="0" className="w-full px-3 py-2 bg-slate-50 border-2 border-slate-200 focus:border-red-400 rounded-xl outline-none text-sm" value={newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })} />
+                  <label className="text-xs font-bold text-slate-400 mb-1 block">Stock</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    className="w-full px-3 py-2 bg-slate-950 border-2 border-slate-800 focus:border-red-500 rounded-xl outline-none text-sm text-white placeholder-slate-500"
+                    value={newProduct.stock}
+                    onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
+                  />
                 </div>
               </div>
             </div>
             <div className="flex gap-2 mt-5">
-              <button onClick={() => { setShowNewProductModal(false); setNewProduct({ barcode: '', name: '', rate: '', stock: '' }); }} className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm">Cancel</button>
-              <button onClick={saveNewProduct} className="flex-1 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-bold text-sm">✅ Save to Firebase</button>
+              <button
+                onClick={() => { setShowNewProductModal(false); setNewProduct({ barcode: '', name: '', rate: '', stock: '' }); }}
+                className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-sm border border-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveNewProduct}
+                className="flex-1 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-red-900/50"
+              >
+                ✅ Save to Firebase
+              </button>
             </div>
           </div>
         </div>
@@ -795,43 +992,43 @@ export default function BillingPage() {
 
       {/* CAMERA MODAL */}
       {isScannerOpen && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-4 max-w-md w-full">
+        <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl p-4 max-w-md w-full border border-slate-800">
             <div className="flex justify-between items-center mb-3">
-              <h3 className="text-sm font-black">📷 Barcode Scan</h3>
-              <button onClick={stopCameraScanner} className="w-8 h-8 bg-red-100 text-red-600 rounded-lg font-bold">✕</button>
+              <h3 className="text-sm font-black text-white">📷 Barcode Scan</h3>
+              <button onClick={stopCameraScanner} className="w-8 h-8 bg-red-900/50 text-red-400 rounded-lg font-bold border border-red-800">✕</button>
             </div>
             <div id="barcode-reader" className="rounded-xl overflow-hidden"></div>
-            <p className="text-xs text-center text-slate-500 mt-2">{scanStatus || 'Barcode ko frame me rakho'}</p>
+            <p className="text-xs text-center text-slate-400 mt-2">{scanStatus || 'Barcode ko frame me rakho'}</p>
           </div>
         </div>
       )}
 
       {/* ADMIN PANEL (Products Quick View) */}
       {showAdminPanel && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-5 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl p-5 max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-800">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-black">📦 Products ({products.length})</h2>
-              <button onClick={() => setShowAdminPanel(false)} className="w-8 h-8 bg-slate-100 rounded-lg">✕</button>
+              <h2 className="text-lg font-black text-white">📦 Products ({products.length})</h2>
+              <button onClick={() => setShowAdminPanel(false)} className="w-8 h-8 bg-slate-800 rounded-lg text-white">✕</button>
             </div>
             <div className="flex gap-2 mb-4 flex-wrap">
-              <label className="flex-1 bg-green-600 text-white px-3 py-2 rounded-xl text-xs font-bold text-center cursor-pointer">
+              <label className="flex-1 bg-green-700 text-white px-3 py-2 rounded-xl text-xs font-bold text-center cursor-pointer">
                 📥 Import CSV
                 <input type="file" accept=".csv" onChange={importProducts} className="hidden" />
               </label>
-              <button onClick={exportProducts} className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-xl text-xs font-bold">📤 Export CSV</button>
-              <button onClick={handleReseed} className="bg-amber-600 text-white px-3 py-2 rounded-xl text-xs font-bold">🌱 Seed</button>
+              <button onClick={exportProducts} className="flex-1 bg-blue-700 text-white px-3 py-2 rounded-xl text-xs font-bold">📤 Export CSV</button>
+              <button onClick={handleReseed} className="bg-amber-700 text-white px-3 py-2 rounded-xl text-xs font-bold">🌱 Seed</button>
             </div>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {products.map((p: any) => (
-                <div key={p.barcode} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div key={p.barcode} className="flex justify-between items-center p-3 bg-slate-950 rounded-xl border border-slate-800">
                   <div className="flex-1">
-                    <div className="font-bold text-sm text-slate-800">{p.name}</div>
-                    <div className="text-[10px] text-slate-400">📷 {p.barcode} | Stock: {p.stock || 0}</div>
+                    <div className="font-bold text-sm text-white">{p.name}</div>
+                    <div className="text-[10px] text-slate-500">📷 {p.barcode} | Stock: {p.stock || 0}</div>
                   </div>
-                  <div className="text-red-600 font-bold text-sm mr-3">{formatCurrency(p.rate)}</div>
-                  <button onClick={() => handleDeleteProduct(p.barcode)} className="w-7 h-7 bg-red-100 hover:bg-red-500 hover:text-white text-red-600 rounded-lg text-xs">🗑️</button>
+                  <div className="text-red-400 font-bold text-sm mr-3">{formatCurrency(p.rate)}</div>
+                  <button onClick={() => handleDeleteProduct(p.barcode)} className="w-7 h-7 bg-red-900/50 hover:bg-red-600 hover:text-white text-red-400 rounded-lg text-xs border border-red-800">🗑️</button>
                 </div>
               ))}
             </div>
