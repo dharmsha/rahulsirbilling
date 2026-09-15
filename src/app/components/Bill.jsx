@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 export default function BillingPage() {
   const [billData, setBillData] = useState({
@@ -35,10 +33,8 @@ export default function BillingPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [savedBills, setSavedBills] = useState([]);
-  const printRef = useRef(null);
   const inputRef = useRef(null);
 
   const productDatabase = [
@@ -75,7 +71,6 @@ export default function BillingPage() {
     { name: 'Detergent - 1kg', rate: 80 },
     { name: 'Floor Cleaner - 1L', rate: 70 },
     { name: 'Dish Wash - 500ml', rate: 50 },
-    // Food Items - Jooniya Style
     { name: 'Chicken Biryani', rate: 130 },
     { name: 'Chicken Korma', rate: 60 },
     { name: 'Chicken Pakoda', rate: 100 },
@@ -393,184 +388,6 @@ export default function BillingPage() {
       printWindow.document.close();
       setIsPrinting(false);
     }, 300);
-  };
-
-  // ============================================================
-  // 📄 PDF DOWNLOAD - PERFECT FORMATTING
-  // ============================================================
-  const downloadPDF = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      const doc = new jsPDF('p', 'mm', 'a5');
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      
-      // ===== CLEAN PDF =====
-      
-      // Shop Header
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(16);
-      doc.setTextColor(0, 0, 0);
-      doc.text(billData.shopName.toUpperCase(), pageWidth / 2, 15, { align: 'center' });
-      
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.text(billData.shopSubtitle, pageWidth / 2, 22, { align: 'center' });
-      
-      doc.setFontSize(8);
-      doc.setTextColor(80, 80, 80);
-      doc.text(billData.shopAddress, pageWidth / 2, 28, { align: 'center' });
-      doc.text(`Phone: ${billData.shopPhone} | Email: ${billData.shopEmail}`, pageWidth / 2, 34, { align: 'center' });
-      
-      // Separator
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.2);
-      doc.line(8, 40, pageWidth - 8, 40);
-      
-      // Order Details
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(0, 0, 0);
-      doc.text(`Order ID: ${billData.invoiceNo}`, 8, 48);
-      doc.text(`Date: ${billData.invoiceDate}`, 8, 54);
-      
-      // Customer Details
-      doc.setFont("helvetica", "bold");
-      doc.text('Customer Details:', 8, 64);
-      doc.setFont("helvetica", "normal");
-      doc.text(billData.customerName || 'Walk-in Customer', 8, 70);
-      let cusY = 76;
-      if (billData.customerPhone) {
-        doc.text(billData.customerPhone, 8, cusY);
-        cusY += 6;
-      }
-      if (billData.customerAddress) {
-        const addrSplit = doc.splitTextToSize(billData.customerAddress, 70);
-        doc.text(addrSplit, 8, cusY);
-      }
-      
-      // Separator
-      doc.line(8, 90, pageWidth - 8, 90);
-      
-      // Items Table
-      autoTable(doc, {
-        startY: 94,
-        head: [[
-          { content: 'QTY', styles: { cellWidth: 12, halign: 'center', fontSize: 7 } },
-          { content: 'ITEM', styles: { cellWidth: 65, fontSize: 7 } },
-          { content: 'AMOUNT', styles: { cellWidth: 30, halign: 'right', fontSize: 7 } },
-        ]],
-        body: billData.items.map((item) => [
-          item.quantity || 1,
-          item.productName || '-',
-          `₹${Number(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-        ]),
-        theme: 'plain',
-        headStyles: { 
-          fillColor: [240, 240, 240], 
-          textColor: [0, 0, 0], 
-          fontSize: 7, 
-          fontStyle: 'bold',
-          halign: 'left',
-          cellPadding: 2,
-        },
-        styles: { 
-          fontSize: 7, 
-          cellPadding: 3, 
-          textColor: [0, 0, 0],
-          valign: 'middle',
-          lineColor: [200, 200, 200],
-          lineWidth: 0.1,
-        },
-        columnStyles: {
-          0: { halign: 'center', cellWidth: 12 },
-          1: { cellWidth: 65 },
-          2: { halign: 'right', cellWidth: 30 },
-        },
-        margin: { left: 8, right: 8 },
-        tableWidth: pageWidth - 16,
-      });
-      
-      const finalY = doc.lastAutoTable.finalY + 4;
-      
-      // Separator
-      doc.line(8, finalY, pageWidth - 8, finalY);
-      
-      // Price Breakdown
-      let priceY = finalY + 6;
-      
-      const addRow = (label, value) => {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
-        doc.setTextColor(0, 0, 0);
-        doc.text(label, 8, priceY);
-        doc.text(value, pageWidth - 8, priceY, { align: 'right' });
-        priceY += 6;
-      };
-      
-      addRow('Subtotal:', formatCurrency(billData.subtotal));
-      
-      if (billData.discount > 0) {
-        const discAmount = billData.discountType === 'percentage' 
-          ? (billData.subtotal * billData.discount) / 100
-          : billData.discount;
-        addRow('Discount:', `-${formatCurrency(discAmount)}`);
-      }
-      
-      if (billData.platformFee > 0) {
-        addRow('Platform Fee:', formatCurrency(billData.platformFee));
-      }
-      if (billData.handlingCharge > 0) {
-        addRow('Handling Charge:', formatCurrency(billData.handlingCharge));
-      }
-      if (billData.convenienceFee > 0) {
-        addRow('Convenience Fee:', formatCurrency(billData.convenienceFee));
-      }
-      if (billData.deliveryCharge > 0) {
-        addRow('Delivery Charge:', formatCurrency(billData.deliveryCharge));
-      }
-      
-      addRow(`GST (${billData.gstRate}%):`, formatCurrency(billData.gstAmount));
-      
-      // Separator
-      priceY += 2;
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.3);
-      doc.line(8, priceY, pageWidth - 8, priceY);
-      priceY += 6;
-      
-      // Total
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.setTextColor(0, 0, 0);
-      doc.text('TOTAL:', 8, priceY);
-      doc.text(formatCurrency(billData.total), pageWidth - 8, priceY, { align: 'right' });
-      priceY += 8;
-      
-      // Payment Status
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.text('Payment Status:', 8, priceY);
-      doc.text(billData.paymentStatus.toUpperCase(), pageWidth - 8, priceY, { align: 'right' });
-      priceY += 10;
-      
-      // Separator
-      doc.line(8, priceY, pageWidth - 8, priceY);
-      priceY += 8;
-      
-      // Footer
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-      doc.text('*** THANK YOU ***', pageWidth / 2, priceY, { align: 'center' });
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(80, 80, 80);
-      doc.text(`Visit again at ${billData.shopName}`, pageWidth / 2, priceY + 6, { align: 'center' });
-      
-      doc.save(`Invoice_${billData.invoiceNo}.pdf`);
-      setIsLoading(false);
-    }, 500);
   };
 
   const saveBill = () => {
@@ -947,25 +764,18 @@ export default function BillingPage() {
                 </div>
               </div>
 
-              {/* Buttons */}
+              {/* Buttons - Only Print and Save */}
               <div className="space-y-1.5">
                 <button 
                   onClick={printInvoice}
                   disabled={isPrinting}
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 text-sm"
+                  className="w-full py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold rounded-xl shadow-lg shadow-red-200 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
                 >
                   🖨️ Print Invoice
                 </button>
                 <button 
-                  onClick={downloadPDF} 
-                  disabled={isLoading}
-                  className="w-full py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold rounded-xl shadow-lg shadow-red-200 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
-                >
-                  {isLoading ? '⏳ Generating...' : '📄 Download PDF'}
-                </button>
-                <button 
                   onClick={saveBill}
-                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm"
+                  className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm"
                 >
                   💾 Save Bill
                 </button>

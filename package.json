@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "firebase": "^12.19.0",
+    "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
     "next": "16.1.6",
