@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   getStats,
@@ -28,7 +28,7 @@ export default function AdminPage() {
   const [selectedBill, setSelectedBill] = useState<any>(null);
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
-  const [detailView, setDetailView] = useState<any>(null); // 🔥 Drill-down state
+  const [detailView, setDetailView] = useState<any>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
 
   useEffect(() => {
@@ -125,14 +125,14 @@ export default function AdminPage() {
   };
 
   const handleSaveProduct = async (product: any) => {
-    if (!product.name || !product.rate) {
-      alert("Product name and rate are required.");
-      return;
+    try {
+      await addProduct(product);
+      setShowProductModal(false);
+      setEditingProduct(null);
+      loadAll();
+    } catch (err: any) {
+      alert("Save nahi hua: " + err.message);
     }
-    await addProduct(product);
-    setShowProductModal(false);
-    setEditingProduct(null);
-    loadAll();
   };
 
   const exportBillsCSV = () => {
@@ -277,7 +277,6 @@ export default function AdminPage() {
         {/* ============================================================ */}
         {activeTab === "dashboard" && (
           <div className="space-y-8">
-            {/* TODAY */}
             <section>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-6 bg-gradient-to-b from-red-500 to-red-700 rounded-full"></div>
@@ -324,7 +323,6 @@ export default function AdminPage() {
               </div>
             </section>
 
-            {/* QUICK ACTIONS (Drill-Down Cards) */}
             <section>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-6 bg-gradient-to-b from-purple-500 to-purple-700 rounded-full"></div>
@@ -332,116 +330,35 @@ export default function AdminPage() {
                 <span className="text-xs text-slate-400 font-medium ml-auto">Click to explore →</span>
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <DrillCard
-                  title="Date-wise Sales"
-                  subtitle="Daily breakdown"
-                  icon="📅"
-                  color="bg-blue-500"
-                  onClick={() => handleDrillDown("date")}
-                />
-                <DrillCard
-                  title="Monthly Sales"
-                  subtitle="Month by month"
-                  icon="📆"
-                  color="bg-indigo-500"
-                  onClick={() => handleDrillDown("month")}
-                />
-                <DrillCard
-                  title="Yearly Sales"
-                  subtitle="Year over year"
-                  icon="📈"
-                  color="bg-emerald-500"
-                  onClick={() => handleDrillDown("year")}
-                />
-                <DrillCard
-                  title="Top Customers"
-                  subtitle="Best buyers"
-                  icon="🏆"
-                  color="bg-amber-500"
-                  onClick={() => handleDrillDown("customer")}
-                />
-                <DrillCard
-                  title="Top Products"
-                  subtitle="Best sellers"
-                  icon="🔥"
-                  color="bg-red-500"
-                  onClick={() => handleDrillDown("product")}
-                />
-                <DrillCard
-                  title="This Month"
-                  subtitle="Current month"
-                  icon="🗓️"
-                  color="bg-purple-500"
-                  onClick={() => handleDrillDown("month")}
-                />
-                <DrillCard
-                  title="All Bills"
-                  subtitle="Full history"
-                  icon="🧾"
-                  color="bg-slate-600"
-                  onClick={() => setActiveTab("bills")}
-                />
-                <DrillCard
-                  title="All Customers"
-                  subtitle="Complete list"
-                  icon="👥"
-                  color="bg-pink-500"
-                  onClick={() => setActiveTab("customers")}
-                />
+                <DrillCard title="Date-wise Sales" subtitle="Daily breakdown" icon="📅" color="bg-blue-500" onClick={() => handleDrillDown("date")} />
+                <DrillCard title="Monthly Sales" subtitle="Month by month" icon="📆" color="bg-indigo-500" onClick={() => handleDrillDown("month")} />
+                <DrillCard title="Yearly Sales" subtitle="Year over year" icon="📈" color="bg-emerald-500" onClick={() => handleDrillDown("year")} />
+                <DrillCard title="Top Customers" subtitle="Best buyers" icon="🏆" color="bg-amber-500" onClick={() => handleDrillDown("customer")} />
+                <DrillCard title="Top Products" subtitle="Best sellers" icon="🔥" color="bg-red-500" onClick={() => handleDrillDown("product")} />
+                <DrillCard title="This Month" subtitle="Current month" icon="🗓️" color="bg-purple-500" onClick={() => handleDrillDown("month")} />
+                <DrillCard title="All Bills" subtitle="Full history" icon="🧾" color="bg-slate-600" onClick={() => setActiveTab("bills")} />
+                <DrillCard title="All Customers" subtitle="Complete list" icon="👥" color="bg-pink-500" onClick={() => setActiveTab("customers")} />
               </div>
             </section>
 
-            {/* ALL TIME */}
             <section>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-emerald-700 rounded-full"></div>
                 <h2 className="text-base font-bold text-slate-800">All-Time Statistics</h2>
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard
-                  title="Total Revenue"
-                  value={formatCurrency(stats?.totalRevenue || 0)}
-                  subtitle="lifetime earnings"
-                  gradient="from-emerald-500 to-green-700"
-                  icon="💎"
-                  onClick={() => handleDrillDown("year")}
-                />
-                <StatCard
-                  title="Total Bills"
-                  value={stats?.totalBills || 0}
-                  subtitle="lifetime"
-                  gradient="from-slate-600 to-slate-800"
-                  icon="📋"
-                  onClick={() => setActiveTab("bills")}
-                />
-                <StatCard
-                  title="Total Customers"
-                  value={stats?.uniqueCustomers || 0}
-                  subtitle="unique"
-                  gradient="from-rose-500 to-rose-700"
-                  icon="❤️"
-                  onClick={() => handleDrillDown("customer")}
-                />
-                <StatCard
-                  title="Average Bill"
-                  value={stats?.totalBills ? formatCurrency(stats.totalRevenue / stats.totalBills) : "₹0"}
-                  subtitle="per transaction"
-                  gradient="from-teal-500 to-teal-700"
-                  icon="📊"
-                  onClick={() => setActiveTab("bills")}
-                />
+                <StatCard title="Total Revenue" value={formatCurrency(stats?.totalRevenue || 0)} subtitle="lifetime earnings" gradient="from-emerald-500 to-green-700" icon="💎" onClick={() => handleDrillDown("year")} />
+                <StatCard title="Total Bills" value={stats?.totalBills || 0} subtitle="lifetime" gradient="from-slate-600 to-slate-800" icon="📋" onClick={() => setActiveTab("bills")} />
+                <StatCard title="Total Customers" value={stats?.uniqueCustomers || 0} subtitle="unique" gradient="from-rose-500 to-rose-700" icon="❤️" onClick={() => handleDrillDown("customer")} />
+                <StatCard title="Average Bill" value={stats?.totalBills ? formatCurrency(stats.totalRevenue / stats.totalBills) : "₹0"} subtitle="per transaction" gradient="from-teal-500 to-teal-700" icon="📊" onClick={() => setActiveTab("bills")} />
               </div>
             </section>
 
-            {/* RECENT BILLS */}
             <section>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-6 bg-gradient-to-b from-red-500 to-red-700 rounded-full"></div>
                 <h2 className="text-base font-bold text-slate-800">Recent Activity</h2>
-                <button
-                  onClick={() => setActiveTab("bills")}
-                  className="ml-auto text-xs text-red-600 hover:text-red-700 font-semibold"
-                >
+                <button onClick={() => setActiveTab("bills")} className="ml-auto text-xs text-red-600 hover:text-red-700 font-semibold">
                   View all →
                 </button>
               </div>
@@ -468,9 +385,7 @@ export default function AdminPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-red-600">
-                        {formatCurrency(bill.total)}
-                      </p>
+                      <p className="text-sm font-bold text-red-600">{formatCurrency(bill.total)}</p>
                       <p className="text-xs text-slate-400">
                         {bill.items?.filter((i: any) => i.productName).length || 0} items
                       </p>
@@ -490,7 +405,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* BILLS TAB (same as before, but with drill) */}
+        {/* BILLS TAB */}
         {activeTab === "bills" && (
           <div className="space-y-4">
             <div className="flex flex-wrap justify-between items-center gap-3">
@@ -501,16 +416,10 @@ export default function AdminPage() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={() => handleDrillDown("date")}
-                  className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-                >
+                <button onClick={() => handleDrillDown("date")} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all">
                   📅 Group by Date
                 </button>
-                <button
-                  onClick={exportBillsCSV}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-                >
+                <button onClick={exportBillsCSV} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all">
                   📤 Export CSV
                 </button>
               </div>
@@ -569,18 +478,8 @@ export default function AdminPage() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1.5 justify-center">
-                            <button
-                              onClick={() => setSelectedBill(bill)}
-                              className="w-8 h-8 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600 rounded-lg text-sm transition-all"
-                            >
-                              👁️
-                            </button>
-                            <button
-                              onClick={() => handleDeleteBill(bill.id)}
-                              className="w-8 h-8 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 rounded-lg text-sm transition-all"
-                            >
-                              🗑️
-                            </button>
+                            <button onClick={() => setSelectedBill(bill)} className="w-8 h-8 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600 rounded-lg text-sm transition-all">👁️</button>
+                            <button onClick={() => handleDeleteBill(bill.id)} className="w-8 h-8 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 rounded-lg text-sm transition-all">🗑️</button>
                           </div>
                         </td>
                       </tr>
@@ -610,10 +509,7 @@ export default function AdminPage() {
                   {filteredCustomers.length} of {customers.length} customers • Sorted by total spent
                 </p>
               </div>
-              <button
-                onClick={() => handleDrillDown("customer")}
-                className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold"
-              >
+              <button onClick={() => handleDrillDown("customer")} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold">
                 🏆 Full Ranking
               </button>
             </div>
@@ -633,10 +529,7 @@ export default function AdminPage() {
               {filteredCustomers.map((c: any, idx: number) => (
                 <div
                   key={idx}
-                  onClick={() => {
-                    setSelectedCustomer(c);
-                    handleDrillDown("customer", c);
-                  }}
+                  onClick={() => { setSelectedCustomer(c); handleDrillDown("customer", c); }}
                   className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-red-300 hover:-translate-y-0.5 cursor-pointer transition-all"
                 >
                   <div className="flex items-center gap-3 mb-4">
@@ -647,26 +540,16 @@ export default function AdminPage() {
                       <p className="font-bold text-slate-800 truncate">{c.name}</p>
                       <p className="text-xs text-slate-400 truncate">📞 {c.phone}</p>
                     </div>
-                    <span className="text-xs bg-slate-100 text-slate-600 font-bold px-2 py-1 rounded-full">
-                      #{idx + 1}
-                    </span>
+                    <span className="text-xs bg-slate-100 text-slate-600 font-bold px-2 py-1 rounded-full">#{idx + 1}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100">
                     <div>
-                      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                        Total Spent
-                      </p>
-                      <p className="text-base font-bold text-red-600 mt-0.5">
-                        {formatCurrency(c.totalSpent)}
-                      </p>
+                      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Total Spent</p>
+                      <p className="text-base font-bold text-red-600 mt-0.5">{formatCurrency(c.totalSpent)}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                        Total Bills
-                      </p>
-                      <p className="text-base font-bold text-slate-800 mt-0.5">
-                        {c.totalBills}
-                      </p>
+                      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Total Bills</p>
+                      <p className="text-base font-bold text-slate-800 mt-0.5">{c.totalBills}</p>
                     </div>
                   </div>
                   <div className="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center">
@@ -700,22 +583,13 @@ export default function AdminPage() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={() => handleDrillDown("product")}
-                  className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold"
-                >
+                <button onClick={() => handleDrillDown("product")} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold">
                   🔥 Top Selling
                 </button>
-                <button
-                  onClick={() => { setEditingProduct(null); setShowProductModal(true); }}
-                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-semibold"
-                >
+                <button onClick={() => { setEditingProduct(null); setShowProductModal(true); }} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-semibold">
                   ➕ Add Product
                 </button>
-                <button
-                  onClick={exportProductsCSV}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold"
-                >
+                <button onClick={exportProductsCSV} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold">
                   📤 Export
                 </button>
               </div>
@@ -772,7 +646,7 @@ export default function AdminPage() {
                         <tr key={p.barcode} className={`hover:bg-slate-50 transition-colors ${isLow ? "bg-amber-50/50" : ""}`}>
                           <td className="px-4 py-3">
                             <span className="font-mono text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                              {p.barcode}
+                              {p.barcode || "—"}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-sm font-semibold text-slate-800">{p.name}</td>
@@ -784,29 +658,15 @@ export default function AdminPage() {
                           </td>
                           <td className="px-4 py-3 text-center">
                             {isLow ? (
-                              <span className="inline-block bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">
-                                Low Stock
-                              </span>
+                              <span className="inline-block bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Low Stock</span>
                             ) : (
-                              <span className="inline-block bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">
-                                In Stock
-                              </span>
+                              <span className="inline-block bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">In Stock</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex gap-1.5 justify-center">
-                              <button
-                                onClick={() => { setEditingProduct(p); setShowProductModal(true); }}
-                                className="w-8 h-8 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600 rounded-lg text-sm transition-all"
-                              >
-                                ✏️
-                              </button>
-                              <button
-                                onClick={() => handleDeleteProduct(p.barcode)}
-                                className="w-8 h-8 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 rounded-lg text-sm transition-all"
-                              >
-                                🗑️
-                              </button>
+                              <button onClick={() => { setEditingProduct(p); setShowProductModal(true); }} className="w-8 h-8 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600 rounded-lg text-sm transition-all">✏️</button>
+                              <button onClick={() => handleDeleteProduct(p.barcode)} className="w-8 h-8 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 rounded-lg text-sm transition-all">🗑️</button>
                             </div>
                           </td>
                         </tr>
@@ -828,17 +688,10 @@ export default function AdminPage() {
         )}
       </main>
 
-      {/* BILL DETAIL MODAL */}
       {selectedBill && (
-        <BillDetailModal
-          bill={selectedBill}
-          onClose={() => setSelectedBill(null)}
-          formatCurrency={formatCurrency}
-          formatDate={formatDate}
-        />
+        <BillDetailModal bill={selectedBill} onClose={() => setSelectedBill(null)} formatCurrency={formatCurrency} formatDate={formatDate} />
       )}
 
-      {/* PRODUCT MODAL */}
       {showProductModal && (
         <ProductModal
           product={editingProduct}
@@ -851,18 +704,13 @@ export default function AdminPage() {
 }
 
 // ============================================================
-// STAT CARD (Clickable)
+// STAT CARD
 // ============================================================
 function StatCard({ title, value, subtitle, gradient, icon, onClick }: any) {
   return (
-    <button
-      onClick={onClick}
-      className={`bg-gradient-to-br ${gradient} rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 relative overflow-hidden text-left w-full`}
-    >
+    <button onClick={onClick} className={`bg-gradient-to-br ${gradient} rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 relative overflow-hidden text-left w-full`}>
       <div className="absolute top-3 right-3 text-3xl opacity-20">{icon}</div>
-      <p className="text-[10px] text-white/80 font-bold uppercase tracking-wider mb-1">
-        {title}
-      </p>
+      <p className="text-[10px] text-white/80 font-bold uppercase tracking-wider mb-1">{title}</p>
       <p className="text-2xl font-bold text-white mb-1">{value}</p>
       <p className="text-[10px] text-white/70 font-medium">{subtitle}</p>
     </button>
@@ -870,18 +718,13 @@ function StatCard({ title, value, subtitle, gradient, icon, onClick }: any) {
 }
 
 // ============================================================
-// DRILL CARD (Clickable)
+// DRILL CARD
 // ============================================================
 function DrillCard({ title, subtitle, icon, color, onClick }: any) {
   return (
-    <button
-      onClick={onClick}
-      className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-red-300 hover:-translate-y-0.5 transition-all text-left w-full group"
-    >
+    <button onClick={onClick} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:border-red-300 hover:-translate-y-0.5 transition-all text-left w-full group">
       <div className="flex items-center gap-3 mb-3">
-        <div className={`w-11 h-11 ${color} rounded-xl flex items-center justify-center text-white text-lg shadow-md`}>
-          {icon}
-        </div>
+        <div className={`w-11 h-11 ${color} rounded-xl flex items-center justify-center text-white text-lg shadow-md`}>{icon}</div>
         <div className="flex-1">
           <p className="text-sm font-bold text-slate-800">{title}</p>
           <p className="text-[10px] text-slate-400 font-medium">{subtitle}</p>
@@ -893,7 +736,7 @@ function DrillCard({ title, subtitle, icon, color, onClick }: any) {
 }
 
 // ============================================================
-// DETAIL VIEW (Full Screen)
+// DETAIL VIEW
 // ============================================================
 function DetailView({
   detailView, setDetailView, formatCurrency, formatDate, formatShortDate, formatDay,
@@ -916,16 +759,9 @@ function DetailView({
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <header className="bg-white/80 backdrop-blur-lg border-b border-slate-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 flex items-center gap-4">
-          <button
-            onClick={() => { setDetailView(null); setSelectedCustomer(null); }}
-            className="w-10 h-10 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center justify-center text-slate-600 font-bold transition-all"
-          >
-            ←
-          </button>
+          <button onClick={() => { setDetailView(null); setSelectedCustomer(null); }} className="w-10 h-10 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center justify-center text-slate-600 font-bold transition-all">←</button>
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-gradient-to-br from-red-600 to-red-700 rounded-2xl flex items-center justify-center shadow-lg shadow-red-200 text-xl">
-              {t.icon}
-            </div>
+            <div className="w-11 h-11 bg-gradient-to-br from-red-600 to-red-700 rounded-2xl flex items-center justify-center shadow-lg shadow-red-200 text-xl">{t.icon}</div>
             <div>
               <h1 className="text-lg font-bold text-slate-900 tracking-tight">{t.title}</h1>
               <p className="text-xs text-slate-500 font-medium">{t.subtitle}</p>
@@ -935,7 +771,6 @@ function DetailView({
       </header>
 
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-6 lg:py-8">
-        {/* Summary */}
         {Array.isArray(data) && data.length > 0 && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
@@ -958,48 +793,31 @@ function DetailView({
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Best Day/Entry</p>
               <p className="text-sm font-bold text-emerald-600 mt-1 truncate">
                 {(() => {
-                  const sorted = [...data].sort((a: any, b: any) =>
-                    (b.revenue || b.totalSpent || 0) - (a.revenue || a.totalSpent || 0)
-                  );
+                  const sorted = [...data].sort((a: any, b: any) => (b.revenue || b.totalSpent || 0) - (a.revenue || a.totalSpent || 0));
                   const best = sorted[0];
-                  return best?.dateObj
-                    ? formatShortDate(best.dateObj.toISOString())
-                    : best?.monthShort || best?.year || best?.name || "-";
+                  return best?.dateObj ? formatShortDate(best.dateObj.toISOString()) : best?.monthShort || best?.year || best?.name || "-";
                 })()}
               </p>
             </div>
           </div>
         )}
 
-        {/* Data List */}
         <div className="space-y-3">
           {type === "date" && data.map((d: any, idx: number) => (
             <DateRow key={idx} data={d} formatCurrency={formatCurrency} formatDay={formatDay} setSelectedBill={setSelectedBill} />
           ))}
-
           {type === "today" && data.map((d: any, idx: number) => (
             <DateRow key={idx} data={d} formatCurrency={formatCurrency} formatDay={formatDay} setSelectedBill={setSelectedBill} />
           ))}
-
           {type === "month" && data.map((m: any, idx: number) => (
             <MonthRow key={idx} data={m} formatCurrency={formatCurrency} setSelectedBill={setSelectedBill} />
           ))}
-
           {type === "year" && data.map((y: any, idx: number) => (
             <YearRow key={idx} data={y} formatCurrency={formatCurrency} setSelectedBill={setSelectedBill} />
           ))}
-
           {type === "customer" && data.map((c: any, idx: number) => (
-            <CustomerRow
-              key={idx}
-              data={c}
-              rank={idx + 1}
-              formatCurrency={formatCurrency}
-              formatShortDate={formatShortDate}
-              setSelectedCustomer={setSelectedCustomer}
-            />
+            <CustomerRow key={idx} data={c} rank={idx + 1} formatCurrency={formatCurrency} formatShortDate={formatShortDate} setSelectedCustomer={setSelectedCustomer} />
           ))}
-
           {type === "product" && data.map((p: any, idx: number) => (
             <ProductRow key={idx} data={p} rank={idx + 1} formatCurrency={formatCurrency} />
           ))}
@@ -1013,25 +831,8 @@ function DetailView({
         </div>
       </main>
 
-      {/* Bill Modal */}
-      {selectedBill && (
-        <BillDetailModal
-          bill={selectedBill}
-          onClose={() => setSelectedBill(null)}
-          formatCurrency={formatCurrency}
-          formatDate={formatDate}
-        />
-      )}
-
-      {/* Customer Detail Modal */}
-      {selectedCustomer && (
-        <CustomerDetailModal
-          customer={selectedCustomer}
-          onClose={() => setSelectedCustomer(null)}
-          formatCurrency={formatCurrency}
-          formatDate={formatDate}
-        />
-      )}
+      {selectedBill && <BillDetailModal bill={selectedBill} onClose={() => setSelectedBill(null)} formatCurrency={formatCurrency} formatDate={formatDate} />}
+      {selectedCustomer && <CustomerDetailModal customer={selectedCustomer} onClose={() => setSelectedCustomer(null)} formatCurrency={formatCurrency} formatDate={formatDate} />}
     </div>
   );
 }
@@ -1043,22 +844,15 @@ function DateRow({ data, formatCurrency, formatDay, setSelectedBill }: any) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full p-4 flex justify-between items-center hover:bg-slate-50 transition-colors"
-      >
+      <button onClick={() => setExpanded(!expanded)} className="w-full p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
         <div className="flex items-center gap-4 text-left">
           <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex flex-col items-center justify-center text-white shadow-md">
             <span className="text-xl font-bold">{data.dateObj.getDate()}</span>
-            <span className="text-[9px] uppercase font-bold">
-              {data.dateObj.toLocaleDateString("en-IN", { month: "short" })}
-            </span>
+            <span className="text-[9px] uppercase font-bold">{data.dateObj.toLocaleDateString("en-IN", { month: "short" })}</span>
           </div>
           <div>
             <p className="text-sm font-bold text-slate-800">{formatDay(data.dateObj)}</p>
-            <p className="text-xs text-slate-500">
-              {data.bills} bills • {data.items} items • {data.customerCount} customers
-            </p>
+            <p className="text-xs text-slate-500">{data.bills} bills • {data.items} items • {data.customerCount} customers</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -1072,15 +866,9 @@ function DateRow({ data, formatCurrency, formatDay, setSelectedBill }: any) {
       {expanded && (
         <div className="border-t border-slate-100 bg-slate-50 p-3 space-y-2">
           {data.billList.map((bill: any) => (
-            <button
-              key={bill.id}
-              onClick={() => setSelectedBill(bill)}
-              className="w-full flex justify-between items-center p-3 bg-white rounded-xl hover:bg-red-50 transition-colors text-left"
-            >
+            <button key={bill.id} onClick={() => setSelectedBill(bill)} className="w-full flex justify-between items-center p-3 bg-white rounded-xl hover:bg-red-50 transition-colors text-left">
               <div>
-                <p className="text-sm font-semibold text-slate-800">
-                  {bill.customerName || "Walk-in Customer"}
-                </p>
+                <p className="text-sm font-semibold text-slate-800">{bill.customerName || "Walk-in Customer"}</p>
                 <p className="text-xs text-slate-400 font-mono">{bill.invoiceNo}</p>
               </div>
               <p className="text-sm font-bold text-red-600">{formatCurrency(bill.total)}</p>
@@ -1096,21 +884,14 @@ function MonthRow({ data, formatCurrency, setSelectedBill }: any) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full p-4 flex justify-between items-center hover:bg-slate-50 transition-colors"
-      >
+      <button onClick={() => setExpanded(!expanded)} className="w-full p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-2xl flex items-center justify-center text-white shadow-md">
-            <span className="text-lg font-bold">
-              {data.monthName.split(" ")[0].slice(0, 3)}
-            </span>
+            <span className="text-lg font-bold">{data.monthName.split(" ")[0].slice(0, 3)}</span>
           </div>
           <div className="text-left">
             <p className="text-sm font-bold text-slate-800">{data.monthName}</p>
-            <p className="text-xs text-slate-500">
-              {data.bills} bills • {data.items} items • {data.customerCount} customers
-            </p>
+            <p className="text-xs text-slate-500">{data.bills} bills • {data.items} items • {data.customerCount} customers</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -1124,26 +905,16 @@ function MonthRow({ data, formatCurrency, setSelectedBill }: any) {
       {expanded && (
         <div className="border-t border-slate-100 bg-slate-50 p-3 space-y-2">
           {data.billList.slice(0, 10).map((bill: any) => (
-            <button
-              key={bill.id}
-              onClick={() => setSelectedBill(bill)}
-              className="w-full flex justify-between items-center p-3 bg-white rounded-xl hover:bg-red-50 transition-colors text-left"
-            >
+            <button key={bill.id} onClick={() => setSelectedBill(bill)} className="w-full flex justify-between items-center p-3 bg-white rounded-xl hover:bg-red-50 transition-colors text-left">
               <div>
-                <p className="text-sm font-semibold text-slate-800">
-                  {bill.customerName || "Walk-in Customer"}
-                </p>
-                <p className="text-xs text-slate-400">
-                  {new Date(bill.savedAt).toLocaleDateString("en-IN")}
-                </p>
+                <p className="text-sm font-semibold text-slate-800">{bill.customerName || "Walk-in Customer"}</p>
+                <p className="text-xs text-slate-400">{new Date(bill.savedAt).toLocaleDateString("en-IN")}</p>
               </div>
               <p className="text-sm font-bold text-red-600">{formatCurrency(bill.total)}</p>
             </button>
           ))}
           {data.billList.length > 10 && (
-            <p className="text-center text-xs text-slate-400 py-2">
-              +{data.billList.length - 10} more bills
-            </p>
+            <p className="text-center text-xs text-slate-400 py-2">+{data.billList.length - 10} more bills</p>
           )}
         </div>
       )}
@@ -1155,19 +926,14 @@ function YearRow({ data, formatCurrency, setSelectedBill }: any) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full p-4 flex justify-between items-center hover:bg-slate-50 transition-colors"
-      >
+      <button onClick={() => setExpanded(!expanded)} className="w-full p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-2xl flex items-center justify-center text-white shadow-md">
             <span className="text-xl font-bold">{data.year}</span>
           </div>
           <div className="text-left">
             <p className="text-sm font-bold text-slate-800">Year {data.year}</p>
-            <p className="text-xs text-slate-500">
-              {data.bills} bills • {data.items} items • {data.customerCount} customers
-            </p>
+            <p className="text-xs text-slate-500">{data.bills} bills • {data.items} items • {data.customerCount} customers</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -1181,26 +947,16 @@ function YearRow({ data, formatCurrency, setSelectedBill }: any) {
       {expanded && (
         <div className="border-t border-slate-100 bg-slate-50 p-3 space-y-2">
           {data.billList.slice(0, 10).map((bill: any) => (
-            <button
-              key={bill.id}
-              onClick={() => setSelectedBill(bill)}
-              className="w-full flex justify-between items-center p-3 bg-white rounded-xl hover:bg-red-50 transition-colors text-left"
-            >
+            <button key={bill.id} onClick={() => setSelectedBill(bill)} className="w-full flex justify-between items-center p-3 bg-white rounded-xl hover:bg-red-50 transition-colors text-left">
               <div>
-                <p className="text-sm font-semibold text-slate-800">
-                  {bill.customerName || "Walk-in Customer"}
-                </p>
-                <p className="text-xs text-slate-400">
-                  {new Date(bill.savedAt).toLocaleDateString("en-IN")}
-                </p>
+                <p className="text-sm font-semibold text-slate-800">{bill.customerName || "Walk-in Customer"}</p>
+                <p className="text-xs text-slate-400">{new Date(bill.savedAt).toLocaleDateString("en-IN")}</p>
               </div>
               <p className="text-sm font-bold text-red-600">{formatCurrency(bill.total)}</p>
             </button>
           ))}
           {data.billList.length > 10 && (
-            <p className="text-center text-xs text-slate-400 py-2">
-              +{data.billList.length - 10} more bills
-            </p>
+            <p className="text-center text-xs text-slate-400 py-2">+{data.billList.length - 10} more bills</p>
           )}
         </div>
       )}
@@ -1211,10 +967,7 @@ function YearRow({ data, formatCurrency, setSelectedBill }: any) {
 function CustomerRow({ data, rank, formatCurrency, formatShortDate, setSelectedCustomer }: any) {
   const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
   return (
-    <button
-      onClick={() => setSelectedCustomer(data)}
-      className="w-full bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-lg hover:border-red-300 transition-all flex justify-between items-center text-left"
-    >
+    <button onClick={() => setSelectedCustomer(data)} className="w-full bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-lg hover:border-red-300 transition-all flex justify-between items-center text-left">
       <div className="flex items-center gap-4">
         <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-red-700 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-md">
           {(data.name || "W")[0].toUpperCase()}
@@ -1225,9 +978,7 @@ function CustomerRow({ data, rank, formatCurrency, formatShortDate, setSelectedC
             {medal && <span className="text-lg">{medal}</span>}
           </p>
           <p className="text-xs text-slate-500">📞 {data.phone}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">
-            Last visit: {formatShortDate(data.lastVisit)}
-          </p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Last visit: {formatShortDate(data.lastVisit)}</p>
         </div>
       </div>
       <div className="text-right">
@@ -1243,15 +994,11 @@ function ProductRow({ data, rank, formatCurrency }: any) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex justify-between items-center">
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-md">
-          #{rank}
-        </div>
+        <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-md">#{rank}</div>
         <div>
           <p className="text-sm font-bold text-slate-800">{data.name}</p>
-          <p className="text-xs text-slate-500 font-mono">{data.barcode}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">
-            Sold {data.totalQty} times • {data.timesSold} transactions
-          </p>
+          <p className="text-xs text-slate-500 font-mono">{data.barcode || "—"}</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Sold {data.totalQty} times • {data.timesSold} transactions</p>
         </div>
       </div>
       <div className="text-right">
@@ -1308,9 +1055,7 @@ function BillDetailModal({ bill, onClose, formatCurrency, formatDate }: any) {
             <div className="bg-slate-50 rounded-xl p-3 space-y-2">
               {bill.items?.filter((i: any) => i.productName).map((item: any, idx: number) => (
                 <div key={idx} className="flex justify-between text-sm">
-                  <span className="text-slate-700">
-                    {item.productName} <span className="text-slate-400">× {item.quantity}</span>
-                  </span>
+                  <span className="text-slate-700">{item.productName} <span className="text-slate-400">× {item.quantity}</span></span>
                   <span className="font-semibold text-slate-800">{formatCurrency(item.amount)}</span>
                 </div>
               ))}
@@ -1408,80 +1153,207 @@ function CustomerDetailModal({ customer, onClose, formatCurrency, formatDate }: 
 }
 
 // ============================================================
-// PRODUCT MODAL
+// PRODUCT MODAL (with camera scanner + optional barcode)
 // ============================================================
 function ProductModal({ product, onClose, onSave }: any) {
+  const [form, setForm] = useState({
+    barcode: product?.barcode || "",
+    name: product?.name || "",
+    rate: product?.rate ?? "",
+    stock: product?.stock ?? "",
+  });
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scanStatus, setScanStatus] = useState("");
+  const html5QrcodeRef = useRef<any>(null);
+
+  const isEditing = !!product?.barcode;
+
+  const handleChange = (field: string, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const startScanner = async () => {
+    setIsScannerOpen(true);
+    setScanStatus("📷 Camera starting...");
+
+    setTimeout(async () => {
+      try {
+        const { Html5Qrcode } = await import("html5-qrcode");
+        const html5Qrcode = new Html5Qrcode("admin-barcode-reader");
+        html5QrcodeRef.current = html5Qrcode;
+
+        await html5Qrcode.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 260, height: 160 }, aspectRatio: 1.0 },
+          (decodedText: string) => {
+            setForm((prev) => ({ ...prev, barcode: decodedText.trim() }));
+            setScanStatus(`✅ Scanned: ${decodedText}`);
+            stopScanner();
+            setTimeout(() => setScanStatus(""), 2000);
+          },
+          () => {}
+        );
+        setScanStatus("🎯 Barcode ko frame ke andar rakho");
+      } catch (err: any) {
+        console.error("Camera error:", err);
+        setScanStatus("❌ Camera nahi khul raha. Permission check karo.");
+      }
+    }, 300);
+  };
+
+  const stopScanner = async () => {
+    if (html5QrcodeRef.current) {
+      try {
+        await html5QrcodeRef.current.stop();
+        html5QrcodeRef.current.clear();
+      } catch (err) {}
+      html5QrcodeRef.current = null;
+    }
+    setIsScannerOpen(false);
+    setScanStatus("");
+  };
+
+  const handleSubmit = () => {
+    if (!form.name.trim()) {
+      alert("Product name required hai!");
+      return;
+    }
+    if (!form.rate || parseFloat(String(form.rate)) <= 0) {
+      alert("Valid rate (0 se bada) daalo!");
+      return;
+    }
+
+    // Barcode optional — agar empty hai to auto-generate karo
+    const barcode =
+      form.barcode.trim() ||
+      `AUTO-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+    onSave({
+      barcode,
+      name: form.name.trim(),
+      rate: parseFloat(String(form.rate)),
+      stock: parseInt(String(form.stock)) || 0,
+    });
+  };
+
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl">
-        <div className="flex justify-between items-center mb-5">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">
-              {product ? "Edit Product" : "Add New Product"}
-            </h2>
-            <p className="text-xs text-slate-500">
-              {product ? "Update product information" : "Fill in the product details"}
-            </p>
-          </div>
-          <button onClick={onClose} className="w-9 h-9 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center justify-center">✕</button>
-        </div>
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Barcode</label>
-            <input
-              type="text"
-              placeholder="Enter barcode"
-              className="w-full px-3 py-2.5 bg-slate-50 border-2 border-slate-200 focus:border-red-400 focus:bg-white rounded-xl outline-none text-sm transition-all"
-              value={product?.barcode || ""}
-              onChange={(e) => onSave({ ...product, barcode: e.target.value }, true)}
-              disabled={!!product?.barcode}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Product Name *</label>
-            <input
-              type="text"
-              placeholder="e.g. Amul Butter 500g"
-              className="w-full px-3 py-2.5 bg-slate-50 border-2 border-slate-200 focus:border-red-400 focus:bg-white rounded-xl outline-none text-sm transition-all"
-              value={product?.name || ""}
-              onChange={(e) => onSave({ ...product, name: e.target.value }, true)}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+    <>
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl">
+          <div className="flex justify-between items-center mb-5">
             <div>
-              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Rate (₹) *</label>
+              <h2 className="text-lg font-bold text-slate-900">
+                {isEditing ? "Edit Product" : "Add New Product"}
+              </h2>
+              <p className="text-xs text-slate-500">
+                {isEditing ? "Update product information" : "Barcode optional hai"}
+              </p>
+            </div>
+            <button onClick={onClose} className="w-9 h-9 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center justify-center">✕</button>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">
+                Barcode <span className="text-slate-400 font-normal">(optional)</span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter or scan barcode"
+                  className="flex-1 px-3 py-2.5 bg-slate-50 border-2 border-slate-200 focus:border-red-400 focus:bg-white rounded-xl outline-none text-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  value={form.barcode}
+                  onChange={(e) => handleChange("barcode", e.target.value)}
+                  disabled={isEditing}
+                />
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={startScanner}
+                    className="px-3 py-2.5 bg-slate-900 hover:bg-red-600 text-white rounded-xl text-sm font-bold transition-all flex items-center gap-1"
+                    title="Scan barcode with camera"
+                  >
+                    📷
+                  </button>
+                )}
+              </div>
+              {form.barcode && (
+                <p className="text-[10px] text-slate-400 mt-1">
+                  📷 {form.barcode}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Product Name *</label>
               <input
-                type="number"
-                placeholder="0"
+                type="text"
+                placeholder="e.g. Amul Butter 500g"
                 className="w-full px-3 py-2.5 bg-slate-50 border-2 border-slate-200 focus:border-red-400 focus:bg-white rounded-xl outline-none text-sm transition-all"
-                value={product?.rate || ""}
-                onChange={(e) => onSave({ ...product, rate: e.target.value }, true)}
+                value={form.name}
+                onChange={(e) => handleChange("name", e.target.value)}
+                autoFocus
               />
             </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Stock Quantity</label>
-              <input
-                type="number"
-                placeholder="0"
-                className="w-full px-3 py-2.5 bg-slate-50 border-2 border-slate-200 focus:border-red-400 focus:bg-white rounded-xl outline-none text-sm transition-all"
-                value={product?.stock || ""}
-                onChange={(e) => onSave({ ...product, stock: e.target.value }, true)}
-              />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Rate (₹) *</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  className="w-full px-3 py-2.5 bg-slate-50 border-2 border-slate-200 focus:border-red-400 focus:bg-white rounded-xl outline-none text-sm transition-all"
+                  value={form.rate}
+                  onChange={(e) => handleChange("rate", e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Stock Quantity</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  className="w-full px-3 py-2.5 bg-slate-50 border-2 border-slate-200 focus:border-red-400 focus:bg-white rounded-xl outline-none text-sm transition-all"
+                  value={form.stock}
+                  onChange={(e) => handleChange("stock", e.target.value)}
+                />
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex gap-2 mt-6">
-          <button onClick={onClose} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-sm transition-all">
-            Cancel
-          </button>
-          <button
-            onClick={() => onSave(product, false)}
-            className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-red-200"
-          >
-            {product ? "Update" : "Save"} Product
-          </button>
+
+          <div className="flex gap-2 mt-6">
+            <button onClick={onClose} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-sm transition-all">
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-red-200"
+            >
+              {isEditing ? "Update Product" : "Save Product"}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* CAMERA SCANNER MODAL */}
+      {isScannerOpen && (
+        <div className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl p-4 max-w-md w-full border border-slate-800">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-black text-white">📷 Scan Barcode</h3>
+              <button
+                onClick={stopScanner}
+                className="w-8 h-8 bg-red-900/50 text-red-400 rounded-lg font-bold border border-red-800"
+              >
+                ✕
+              </button>
+            </div>
+            <div id="admin-barcode-reader" className="rounded-xl overflow-hidden"></div>
+            <p className="text-xs text-center text-slate-400 mt-2">
+              {scanStatus || "Barcode ko frame me rakho"}
+            </p>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

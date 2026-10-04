@@ -40,6 +40,7 @@ export default function BillingPage() {
   });
 
   const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dbStatus, setDbStatus] = useState('connecting');
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState<any[]>([]);
@@ -66,6 +67,7 @@ export default function BillingPage() {
 
   const loadProducts = async () => {
     try {
+      setLoading(true);
       setDbStatus('connecting');
       const data = await getProducts();
       setProducts(data);
@@ -80,6 +82,8 @@ export default function BillingPage() {
     } catch (err: any) {
       console.error('Firebase load error:', err);
       setDbStatus('error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -911,6 +915,16 @@ export default function BillingPage() {
           </div>
         </div>
       </div>
+
+      {/* Loading */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
+          <div className="bg-slate-900 rounded-2xl p-6 text-center border border-slate-800">
+            <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-sm font-bold text-white">se products load ho rahe hain...</p>
+          </div>
+        </div>
+      )}
 
       {/* NEW PRODUCT MODAL */}
       {showNewProductModal && (
