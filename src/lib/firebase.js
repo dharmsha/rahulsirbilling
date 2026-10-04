@@ -3,13 +3,13 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBtn7YdyBBOr-V2RuFzY_oPnDxhzdvm3Tw",
-  authDomain: "dataclnt-a5e5e.firebaseapp.com",
-  projectId: "dataclnt-a5e5e",
-  storageBucket: "dataclnt-a5e5e.firebasestorage.app",
-  messagingSenderId: "19403251964",
-  appId: "1:19403251964:web:bda631d2cbd3f9685d3779",
-  measurementId: "G-P1F3E1C8DK"
+  apiKey: "AIzaSyC0jrx53KtvNtMP3qOJlYJUJaKuyQwJmS0",
+  authDomain: "mggm-ee3c2.firebaseapp.com",
+  projectId: "mggm-ee3c2",
+  storageBucket: "mggm-ee3c2.firebasestorage.app",
+  messagingSenderId: "652869026760",
+  appId: "1:652869026760:web:3d0f91468c264a74f176fd",
+  measurementId: "G-2MES2KVD47"
 };
 
 // Singleton — baar baar initialize na ho
