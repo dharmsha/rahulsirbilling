@@ -14,7 +14,7 @@ import { saveBill as saveBillToFirebase } from '@/lib/billDatabase';
 
 export default function BillingPage() {
   const [billData, setBillData] = useState({
-    shopName: 'Krishna Store',
+    shopName: 'MGGM',
     shopSubtitle: 'Fresh & Daily Needs',
     shopAddress: '123, Main Market, Near Temple, Vrindavan, UP 281121',
     shopPhone: '+91 98765 43210',
@@ -24,7 +24,7 @@ export default function BillingPage() {
     customerAddress: '',
     invoiceNo: '',
     invoiceDate: '',
-    items: [{ productName: '', quantity: 1, rate: 0, amount: 0, barcode: '' }],
+    items: [{ productName: '', quantity: 1, mrp: 0, rate: 0, amount: 0, barcode: '' }],
     subtotal: 0,
     gstRate: 18,
     gstAmount: 0,
@@ -50,10 +50,10 @@ export default function BillingPage() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [showNewProductModal, setShowNewProductModal] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [newProduct, setNewProduct] = useState({ barcode: '', name: '', rate: '', stock: '' });
+  const [newProduct, setNewProduct] = useState({ barcode: '', name: '', mrp: '', rate: '', stock: '' });
   const [saving, setSaving] = useState(false);
   const [showManualAdd, setShowManualAdd] = useState(false);
-  const [manualProduct, setManualProduct] = useState({ name: '', rate: '', quantity: 1 });
+  const [manualProduct, setManualProduct] = useState({ name: '', mrp: '', rate: '', quantity: 1 });
 
   const html5QrcodeRef = useRef<any>(null);
 
@@ -156,7 +156,7 @@ export default function BillingPage() {
     const product = await findProductByBarcode(code);
 
     if (!product) {
-      setNewProduct({ barcode: code, name: '', rate: '', stock: '' });
+      setNewProduct({ barcode: code, name: '', mrp: '', rate: '', stock: '' });
       setShowNewProductModal(true);
       setScanStatus(`⚠️ Naya product! Details bharo.`);
       return;
@@ -182,6 +182,7 @@ export default function BillingPage() {
       const newItem = {
         productName: product.name,
         quantity: 1,
+        mrp: product.mrp || product.rate || 0,
         rate: product.rate,
         amount: product.rate,
         barcode: product.barcode || '',
@@ -208,11 +209,16 @@ export default function BillingPage() {
       return;
     }
 
+    const qty = parseInt(String(manualProduct.quantity)) || 1;
+    const rate = parseFloat(manualProduct.rate) || 0;
+    const mrp = parseFloat(manualProduct.mrp) || rate;
+
     const product = {
       productName: manualProduct.name.trim(),
-      quantity: parseInt(String(manualProduct.quantity)) || 1,
-      rate: parseFloat(manualProduct.rate) || 0,
-      amount: (parseInt(String(manualProduct.quantity)) || 1) * (parseFloat(manualProduct.rate) || 0),
+      quantity: qty,
+      mrp: mrp,
+      rate: rate,
+      amount: qty * rate,
       barcode: '',
     };
 
@@ -226,7 +232,7 @@ export default function BillingPage() {
     }
 
     setBillData(calculateTotals({ ...billData, items: newItems }));
-    setManualProduct({ name: '', rate: '', quantity: 1 });
+    setManualProduct({ name: '', mrp: '', rate: '', quantity: 1 });
     setShowManualAdd(false);
     setScanStatus(`✅ Added manually: ${product.productName}`);
     setTimeout(() => setScanStatus(''), 2500);
@@ -244,6 +250,7 @@ export default function BillingPage() {
     const product = {
       barcode: newProduct.barcode,
       name: newProduct.name.trim(),
+      mrp: parseFloat(newProduct.mrp) || parseFloat(newProduct.rate) || 0,
       rate: parseFloat(newProduct.rate) || 0,
       stock: parseInt(newProduct.stock) || 0,
     };
@@ -255,7 +262,7 @@ export default function BillingPage() {
       setProducts(updated);
       addProductToBill(product);
       setShowNewProductModal(false);
-      setNewProduct({ barcode: '', name: '', rate: '', stock: '' });
+      setNewProduct({ barcode: '', name: '', mrp: '', rate: '', stock: '' });
       setScanStatus(`✅ Save ho gaya: ${product.name}`);
       setTimeout(() => setScanStatus(''), 3000);
     } catch (err: any) {
@@ -282,8 +289,8 @@ export default function BillingPage() {
   // 📤 EXPORT CSV
   // ============================================================
   const exportProducts = () => {
-    const csv = 'Barcode,Name,Rate,Stock\n' +
-      products.map((p: any) => `${p.barcode},"${p.name}",${p.rate},${p.stock || 0}`).join('\n');
+    const csv = 'Barcode,Name,MRP,Rate,Stock\n' +
+      products.map((p: any) => `${p.barcode},"${p.name}",${p.mrp || p.rate || 0},${p.rate},${p.stock || 0}`).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -312,8 +319,9 @@ export default function BillingPage() {
             return {
               barcode: parts[0],
               name: parts[1],
-              rate: parseFloat(parts[2]) || 0,
-              stock: parseInt(parts[3]) || 0,
+              mrp: parseFloat(parts[2]) || 0,
+              rate: parseFloat(parts[3]) || 0,
+              stock: parseInt(parts[4]) || 0,
             };
           })
           .filter((p: any) => p.barcode && p.name);
@@ -360,7 +368,7 @@ export default function BillingPage() {
     if (searchValue.length > 1) {
       const filtered = products.filter((product: any) =>
         product.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-        product.barcode.includes(searchValue)
+        (product.barcode || '').includes(searchValue)
       );
       setSuggestions(filtered.slice(0, 8));
     } else {
@@ -432,7 +440,7 @@ export default function BillingPage() {
   const addNewItem = () => {
     setBillData({
       ...billData,
-      items: [...billData.items, { productName: '', quantity: 1, rate: 0, amount: 0, barcode: '' }]
+      items: [...billData.items, { productName: '', quantity: 1, mrp: 0, rate: 0, amount: 0, barcode: '' }]
     });
   };
 
@@ -443,12 +451,28 @@ export default function BillingPage() {
     }
   };
 
+  // Total MRP + Total Savings calculation
+  const getTotalMrp = () => {
+    return billData.items.reduce((s: number, i: any) => s + (parseFloat(i.mrp) || 0) * (parseFloat(i.quantity) || 0), 0);
+  };
+  const getTotalPayable = () => {
+    return billData.items.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
+  };
+  const getSavings = () => {
+    const s = getTotalMrp() - getTotalPayable();
+    return s > 0 ? s : 0;
+  };
+
   // ============================================================
   // 🖨️ PRINT
   // ============================================================
   const printInvoice = () => {
     const printWindow = window.open('', '_blank', 'width=600,height=800');
     if (!printWindow) return;
+    const totalMrp = getTotalMrp();
+    const totalPayable = getTotalPayable();
+    const savings = getSavings();
+
     printWindow.document.write(`
       <html><head><title>Invoice ${billData.invoiceNo}</title>
       <style>
@@ -456,7 +480,9 @@ export default function BillingPage() {
         .center { text-align: center; } .right { text-align: right; } .bold { font-weight: bold; }
         .separator { border-top: 1px dashed #000; margin: 10px 0; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 4px 2px; border-bottom: 1px solid #ddd; } th { text-align: left; }
+        th, td { padding: 4px 2px; border-bottom: 1px solid #ddd; } th { text-align: left; font-size: 11px; }
+        .mrp-strike { text-decoration: line-through; color: #888; }
+        .savings { color: green; font-weight: bold; }
         .footer { margin-top: 20px; text-align: center; font-size: 10px; }
         @media print { body { margin: 0; padding: 10px; } .no-print { display: none; } }
       </style></head><body>
@@ -471,14 +497,23 @@ export default function BillingPage() {
         <div><span class="bold">Date:</span> ${billData.invoiceDate}</div>
         <div style="margin:10px 0;"><span class="bold">Customer:</span> ${billData.customerName || 'Walk-in'}</div>
         <div class="separator"></div>
-        <table><thead><tr><th>QTY</th><th>ITEM</th><th class="right">AMOUNT</th></tr></thead><tbody>
+        <table><thead><tr><th>QTY</th><th>ITEM</th><th class="right">MRP</th><th class="right">RATE</th><th class="right">AMOUNT</th></tr></thead><tbody>
         ${billData.items.filter((i: any) => i.productName).map((item: any) => `
-          <tr><td>${item.quantity}</td><td>${item.productName}</td><td class="right">${formatCurrency(item.amount)}</td></tr>
+          <tr>
+            <td>${item.quantity}</td>
+            <td>${item.productName}</td>
+            <td class="right ${item.mrp > item.rate ? 'mrp-strike' : ''}">${item.mrp ? formatCurrency(item.mrp) : '-'}</td>
+            <td class="right">${formatCurrency(item.rate)}</td>
+            <td class="right">${formatCurrency(item.amount)}</td>
+          </tr>
         `).join('')}
         </tbody></table>
         <div class="separator"></div>
+        <div style="display:flex;justify-content:space-between;"><span>Subtotal (MRP):</span><span>${formatCurrency(totalMrp)}</span></div>
+        ${savings > 0 ? `<div style="display:flex;justify-content:space-between;" class="savings"><span>You Saved:</span><span>${formatCurrency(savings)}</span></div>` : ''}
         <div style="display:flex;justify-content:space-between;"><span>Subtotal:</span><span>${formatCurrency(billData.subtotal)}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>GST (${billData.gstRate}%):</span><span>${formatCurrency(billData.gstAmount)}</span></div>
+        ${billData.discount > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Discount:</span><span>- ${formatCurrency(billData.discountType === 'percentage' ? (billData.subtotal * billData.discount / 100) : billData.discount)}</span></div>` : ''}
         <div class="separator"></div>
         <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:1.25rem;"><span>TOTAL:</span><span>${formatCurrency(billData.total)}</span></div>
         <div class="separator"></div>
@@ -529,7 +564,7 @@ export default function BillingPage() {
     setBillData(prev => ({
       ...prev,
       customerName: '', customerPhone: '', customerAddress: '',
-      items: [{ productName: '', quantity: 1, rate: 0, amount: 0, barcode: '' }],
+      items: [{ productName: '', quantity: 1, mrp: 0, rate: 0, amount: 0, barcode: '' }],
       subtotal: 0, gstAmount: 0, discount: 0, total: 0,
       paymentMethod: 'Cash', deliveryCharge: 0, platformFee: 0,
       handlingCharge: 0, convenienceFee: 0,
@@ -556,7 +591,7 @@ export default function BillingPage() {
               <span className="text-lg">🛍️</span>
             </div>
             <div>
-              <span className="text-lg font-black text-white">Krishna <span className="text-red-500">Store</span></span>
+              <span className="text-lg font-black text-white">MGGM <span className="text-red-500">Store</span></span>
               <span className={`block text-[10px] font-bold ${
                 dbStatus === 'connected' ? 'text-green-400' :
                 dbStatus === 'error' ? 'text-red-400' : 'text-amber-400'
@@ -580,20 +615,24 @@ export default function BillingPage() {
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
             <p className="text-[9px] text-slate-400 font-bold uppercase">Items</p>
             <p className="text-lg font-black text-white">{billData.items.filter((i: any) => i.productName).length}</p>
           </div>
           <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
+            <p className="text-[9px] text-slate-400 font-bold uppercase">Total MRP</p>
+            <p className="text-lg font-black text-slate-400 line-through">{formatCurrency(getTotalMrp())}</p>
+          </div>
+          <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
             <p className="text-[9px] text-slate-400 font-bold uppercase">Subtotal</p>
             <p className="text-lg font-black text-white">{formatCurrency(billData.subtotal)}</p>
           </div>
-          <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
-            <p className="text-[9px] text-slate-400 font-bold uppercase">GST ({billData.gstRate}%)</p>
-            <p className="text-lg font-black text-white">{formatCurrency(billData.gstAmount)}</p>
+          <div className="bg-slate-900 p-3 rounded-xl border border-green-900/50">
+            <p className="text-[9px] text-green-400 font-bold uppercase">You Saved</p>
+            <p className="text-lg font-black text-green-400">{formatCurrency(getSavings())}</p>
           </div>
-          <div className="bg-gradient-to-br from-red-600 to-red-800 p-3 rounded-xl shadow-lg shadow-red-900/50">
+          <div className="bg-gradient-to-br from-red-600 to-red-800 p-3 rounded-xl shadow-lg shadow-red-900/50 col-span-2 sm:col-span-1">
             <p className="text-[9px] text-red-200 font-bold uppercase">Total</p>
             <p className="text-lg font-black text-white">{formatCurrency(billData.total)}</p>
           </div>
@@ -635,15 +674,23 @@ export default function BillingPage() {
                 <input
                   type="text"
                   placeholder="Product name"
-                  className="sm:col-span-5 px-3 py-2 bg-slate-900 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none text-sm text-white placeholder-slate-500"
+                  className="sm:col-span-4 px-3 py-2 bg-slate-900 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none text-sm text-white placeholder-slate-500"
                   value={manualProduct.name}
                   onChange={(e) => setManualProduct({ ...manualProduct, name: e.target.value })}
                   onKeyDown={(e) => e.key === 'Enter' && addManualProduct()}
                 />
                 <input
                   type="number"
+                  placeholder="MRP ₹"
+                  className="sm:col-span-2 px-3 py-2 bg-slate-900 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none text-sm text-white placeholder-slate-500 text-center font-bold"
+                  value={manualProduct.mrp}
+                  onChange={(e) => setManualProduct({ ...manualProduct, mrp: e.target.value })}
+                  onKeyDown={(e) => e.key === 'Enter' && addManualProduct()}
+                />
+                <input
+                  type="number"
                   placeholder="Rate ₹"
-                  className="sm:col-span-3 px-3 py-2 bg-slate-900 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none text-sm text-white placeholder-slate-500 text-center font-bold"
+                  className="sm:col-span-2 px-3 py-2 bg-slate-900 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none text-sm text-white placeholder-slate-500 text-center font-bold"
                   value={manualProduct.rate}
                   onChange={(e) => setManualProduct({ ...manualProduct, rate: e.target.value })}
                   onKeyDown={(e) => e.key === 'Enter' && addManualProduct()}
@@ -664,7 +711,7 @@ export default function BillingPage() {
                 </button>
               </div>
               <p className="text-[10px] text-slate-500 mt-2">
-                💡 Ye product bill me add hoga but database me save nahi hoga (one-time item)
+                💡 MRP optional — agar khali chhoda to Rate hi MRP maan liya jayega. Ye product bill me add hoga but database me save nahi hoga.
               </p>
             </div>
           )}
@@ -770,11 +817,18 @@ export default function BillingPage() {
                 {suggestions.map((product: any, idx: number) => (
                   <div
                     key={idx}
-                    className="p-2.5 hover:bg-slate-800 cursor-pointer flex justify-between border-b border-slate-800 last:border-0"
+                    className="p-2.5 hover:bg-slate-800 cursor-pointer flex justify-between items-center border-b border-slate-800 last:border-0"
                     onClick={() => selectProduct(product)}
                   >
                     <span className="text-sm text-white">{product.name}</span>
-                    <span className="text-red-400 font-bold text-sm">{formatCurrency(product.rate)}</span>
+                    <span className="flex items-center gap-2">
+                      {product.mrp && product.mrp > product.rate && (
+                        <span className="text-[10px] text-slate-500 line-through">
+                          ₹{product.mrp}
+                        </span>
+                      )}
+                      <span className="text-red-400 font-bold text-sm">{formatCurrency(product.rate)}</span>
+                    </span>
                   </div>
                 ))}
               </div>
@@ -789,7 +843,7 @@ export default function BillingPage() {
                   : 'bg-slate-950 border-slate-800'
               }`}>
                 <div className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-5">
+                  <div className="col-span-4">
                     <input
                       type="text"
                       placeholder="Product name"
@@ -803,8 +857,15 @@ export default function BillingPage() {
                   </div>
                   <input
                     type="number"
+                    placeholder="MRP"
+                    className="col-span-2 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-center text-xs font-bold text-slate-400 outline-none focus:border-red-500"
+                    value={item.mrp}
+                    onChange={(e) => handleItemChange(index, 'mrp', parseFloat(e.target.value) || 0)}
+                  />
+                  <input
+                    type="number"
                     placeholder="Qty"
-                    className="col-span-2 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-center text-sm font-bold text-white outline-none focus:border-red-500"
+                    className="col-span-1 px-1 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-center text-xs font-bold text-white outline-none focus:border-red-500"
                     value={item.quantity}
                     onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 1)}
                   />
@@ -815,8 +876,15 @@ export default function BillingPage() {
                     value={item.rate}
                     onChange={(e) => handleItemChange(index, 'rate', parseFloat(e.target.value) || 0)}
                   />
-                  <div className="col-span-2 text-right font-bold text-red-400 text-sm">
-                    {formatCurrency(item.amount)}
+                  <div className="col-span-2 text-right">
+                    {item.mrp > item.rate && (
+                      <div className="text-[9px] text-slate-500 line-through">
+                        {formatCurrency((parseFloat(item.mrp) || 0) * (parseFloat(item.quantity) || 0))}
+                      </div>
+                    )}
+                    <div className="font-bold text-red-400 text-sm">
+                      {formatCurrency(item.amount)}
+                    </div>
                   </div>
                   <button
                     onClick={() => removeItem(index)}
@@ -894,7 +962,15 @@ export default function BillingPage() {
 
         {/* Total */}
         <div className="bg-gradient-to-br from-slate-900 to-slate-950 rounded-2xl p-4 border-2 border-red-900/50">
-          <div className="flex justify-between items-center mb-3">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-xs font-bold text-slate-500">Total MRP</span>
+            <span className="text-sm font-bold text-slate-500 line-through">{formatCurrency(getTotalMrp())}</span>
+          </div>
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-xs font-bold text-green-400">You Saved</span>
+            <span className="text-sm font-bold text-green-400">{formatCurrency(getSavings())}</span>
+          </div>
+          <div className="flex justify-between items-center mb-3 mt-2 pt-2 border-t border-slate-800">
             <span className="text-sm font-bold text-slate-400">TOTAL</span>
             <span className="text-3xl font-black text-red-500">{formatCurrency(billData.total)}</span>
           </div>
@@ -921,7 +997,7 @@ export default function BillingPage() {
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
           <div className="bg-slate-900 rounded-2xl p-6 text-center border border-slate-800">
             <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-sm font-bold text-white">se products load ho rahe hain...</p>
+            <p className="text-sm font-bold text-white">Products load ho rahe hain...</p>
           </div>
         </div>
       )}
@@ -942,19 +1018,29 @@ export default function BillingPage() {
                 <label className="text-xs font-bold text-slate-400 mb-1 block">Product Name *</label>
                 <input
                   type="text"
-                  placeholder="e.g. Amul Butter 500g"
+                  placeholder="e.g. Lays Classic 26g"
                   className="w-full px-3 py-2 bg-slate-950 border-2 border-slate-800 focus:border-red-500 rounded-xl outline-none text-sm text-white placeholder-slate-500"
                   value={newProduct.name}
                   onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
                   autoFocus
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-xs font-bold text-slate-400 mb-1 block">MRP (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="10"
+                    className="w-full px-3 py-2 bg-slate-950 border-2 border-slate-800 focus:border-red-500 rounded-xl outline-none text-sm text-white placeholder-slate-500"
+                    value={newProduct.mrp}
+                    onChange={(e) => setNewProduct({ ...newProduct, mrp: e.target.value })}
+                  />
+                </div>
                 <div>
                   <label className="text-xs font-bold text-slate-400 mb-1 block">Rate (₹) *</label>
                   <input
                     type="number"
-                    placeholder="0"
+                    placeholder="9.59"
                     className="w-full px-3 py-2 bg-slate-950 border-2 border-slate-800 focus:border-red-500 rounded-xl outline-none text-sm text-white placeholder-slate-500"
                     value={newProduct.rate}
                     onChange={(e) => setNewProduct({ ...newProduct, rate: e.target.value })}
@@ -971,10 +1057,11 @@ export default function BillingPage() {
                   />
                 </div>
               </div>
+              <p className="text-[10px] text-slate-500">💡 MRP optional — agar khali chhoda to Rate hi MRP hoga</p>
             </div>
             <div className="flex gap-2 mt-5">
               <button
-                onClick={() => { setShowNewProductModal(false); setNewProduct({ barcode: '', name: '', rate: '', stock: '' }); }}
+                onClick={() => { setShowNewProductModal(false); setNewProduct({ barcode: '', name: '', mrp: '', rate: '', stock: '' }); }}
                 className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-sm border border-slate-700"
               >
                 Cancel
@@ -1027,7 +1114,12 @@ export default function BillingPage() {
                     <div className="font-bold text-sm text-white">{p.name}</div>
                     <div className="text-[10px] text-slate-500">📷 {p.barcode} | Stock: {p.stock || 0}</div>
                   </div>
-                  <div className="text-red-400 font-bold text-sm mr-3">{formatCurrency(p.rate)}</div>
+                  <div className="text-right mr-3">
+                    {p.mrp && p.mrp > p.rate && (
+                      <div className="text-[10px] text-slate-500 line-through">{formatCurrency(p.mrp)}</div>
+                    )}
+                    <div className="text-red-400 font-bold text-sm">{formatCurrency(p.rate)}</div>
+                  </div>
                   <button onClick={() => handleDeleteProduct(p.barcode)} className="w-7 h-7 bg-red-900/50 hover:bg-red-600 hover:text-white text-red-400 rounded-lg text-xs border border-red-800">🗑️</button>
                 </div>
               ))}
